@@ -16,6 +16,8 @@ async function handleIncomingMessage(sock, msg) {
     const command = text.trim().toLowerCase();
 
     switch (command) {
+      case "help":
+        return showHelp(sock, sender);
       case "pengeluaran bulan ini":
         return showExpensesThisMonth(sock, sender, userId);
 
@@ -47,10 +49,7 @@ async function handleExpenseInput(
   const match = text.match(regex);
 
   if (!match) {
-    await sock.sendMessage(sender, {
-      text: "Format tidak dikenali."
-    });
-    return;
+    return showHelp(sock, sender);
   }
 
   const item = match[1].trim();
@@ -131,6 +130,41 @@ function buildExpenseMessage(
     `${details}\n\n` +
     `💰 Total: Rp${total.toLocaleString("id-ID")}`
   );
+}
+
+async function showHelp(sock, sender) {
+  const message = `
+🤖 Bot Pencatatan Keuangan
+
+📝 Mencatat Pengeluaran
+Format:
+
+Beli: Nama Barang
+Harga: Nominal
+
+Contoh:
+Beli: Ayam Geprek
+Harga: 25000
+
+Beli: Bensin
+Harga: 50000
+
+📊 Melihat Laporan
+• pengeluaran bulan ini
+• pengeluaran bulan lalu
+
+❓ Bantuan
+• help
+• menu
+
+Catatan:
+- Harga tanpa titik atau koma lebih disarankan.
+- Semua pengeluaran akan dicatat berdasarkan nomor WhatsApp masing-masing pengguna.
+`;
+
+  await sock.sendMessage(sender, {
+    text: message.trim()
+  });
 }
 
 module.exports = {
