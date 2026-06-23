@@ -32,7 +32,7 @@ async function startBot() {
       console.log("WhatsApp Connected");
     }
 
-    if (connection === "close") {you
+    if (connection === "close") {
         startBot();
     }
     if (lastDisconnect) {
