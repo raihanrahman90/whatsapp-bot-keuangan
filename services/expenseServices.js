@@ -1,6 +1,7 @@
 const fs = require("fs");
+const path = require("path");
 
-const FILE_NAME = "expenses.json";
+const FILE_NAME = path.join(__dirname, "data", "expenses.json");
 function readExpenses() {
   if (!fs.existsSync(FILE_NAME)) {
     return [];
@@ -12,6 +13,8 @@ function readExpenses() {
 }
 
 function saveExpense(userId, item, price) {
+  if (!userId || !item || !price) return;
+  if (isNaN(price)) throw new Error("Price must be number");
   let expenses = [];
 
   if (fs.existsSync(FILE_NAME)) {
