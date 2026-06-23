@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const FILE_NAME = path.join(__dirname, "data", "expenses.json");
+const FILE_NAME = path.join(process.cwd(), "expenses.json");
 function readExpenses() {
   if (!fs.existsSync(FILE_NAME)) {
     return [];
