@@ -2,9 +2,32 @@ services:
   whatsapp-bot:
     build: .
     container_name: whatsapp-bot
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: finance_bot
+      DB_USER: postgres
+      DB_PASSWORD: password123
+    networks:
+      - bot-network
+
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: finance_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
     volumes:
-      - ./data:/app/data
-      - ./auth_info:/app/auth_info
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - bot-network
+
+volumes:
+  postgres-data:
+
+networks:
+  bot-network:
