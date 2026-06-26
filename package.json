@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc13",
+    "knex": "^3.2.10",
     "nodemon": "^3.1.14",
     "pg": "^8.22.0",
     "pino": "^10.3.1",
@@ -12,6 +13,7 @@
     "format": "prettier --write"
   },
   "devDependencies": {
+    "knex-cli": "^1.0.1",
     "prettier": "^3.8.4"
   }
 }

@@ -4,6 +4,7 @@ services:
     container_name: whatsapp-bot
     depends_on:
       - postgres
+    command: sh -c "npm run migrate && npm start"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
