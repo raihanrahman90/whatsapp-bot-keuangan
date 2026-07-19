@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "format": "prettier --write"
+    "format": "prettier --write",
+    "migrate": "knex migrate:latest"
   },
   "devDependencies": {
     "knex-cli": "^1.0.1",
