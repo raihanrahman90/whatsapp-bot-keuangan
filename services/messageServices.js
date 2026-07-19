@@ -37,7 +37,7 @@ async function handleIncomingMessage(sock, msg) {
           return handleTodoInput(sock, sender, userId, text);
         }
 
-        if (text.toLowerCase().startsWith("remove todo:")) {
+        if (text.toLowerCase().startsWith("todo remove:")) {
           return handleRemoveTodo(sock, sender, userId, text);
         }
 
@@ -174,7 +174,7 @@ async function handleRemoveTodo(
   text
 ) {
   const code = text
-    .replace(/remove todo:/i, "")
+    .replace(/todo remove:/i, "")
     .trim()
     .toUpperCase();
 
