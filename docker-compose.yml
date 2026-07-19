@@ -13,6 +13,11 @@ services:
       DB_PASSWORD: password123
     networks:
       - bot-network
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./auth_info:/app/auth_info
 
   postgres:
     image: postgres:17
