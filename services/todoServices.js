@@ -18,7 +18,7 @@ function saveTodos(data) {
 function generateCode() {
   return Math.random()
     .toString(36)
-    .substring(2, 6)
+    .substring(2, 4)
     .toUpperCase();
 }
 
