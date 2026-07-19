@@ -1,4 +1,4 @@
-const { saveExpense, getExpensesLastMonth, getExpensesThisMonth } = require("./expenseServices");
+const { saveExpense, getExpensesLastMonth, getExpensesThisMonth, buildExpenseMessage } = require("./expenseServices");
 const {
   saveTodo,
   removeTodo,
@@ -113,34 +113,6 @@ async function showExpensesLastMonth(
   await sock.sendMessage(sender, {
     text: message
   });
-}
-
-function buildExpenseMessage(
-  title,
-  expenses
-) {
-  if (expenses.length === 0) {
-    return `Belum ada ${title.toLowerCase()}.`;
-  }
-
-  let total = 0;
-
-  const details = expenses
-    .map((e, index) => {
-      total += e.price;
-
-      return (
-        `${index + 1}. ${e.item}\n` +
-        `Rp${e.price.toLocaleString("id-ID")}`
-      );
-    })
-    .join("\n\n");
-
-  return (
-    `📒 ${title}\n\n` +
-    `${details}\n\n` +
-    `💰 Total: Rp${total.toLocaleString("id-ID")}`
-  );
 }
 
 async function handleTodoInput(

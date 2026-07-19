@@ -74,8 +74,50 @@ function getExpensesLastMonth(userId) {
   });
 }
 
+
+function buildExpenseMessage(title, expenses) {
+  if (expenses.length === 0) {
+    return `Belum ada ${title.toLowerCase()}.`;
+  }
+
+  let total = 0;
+
+  const header =
+    `${"No".padEnd(4)}` +
+    `${"Barang".padEnd(12)}` +
+    `${"Harga".padStart(12)}`;
+
+  const separator = "-".repeat(28);
+
+  const rows = expenses.map((e, index) => {
+    total += e.price;
+
+    return (
+      `${String(index + 1).padEnd(4)}` +
+      `${truncate(e.item).padEnd(12)}` +
+      `${formatPrice(e.price)}`
+    );
+  });
+
+  const footer =
+    `${"Total".padEnd(16)}` +
+    `${formatPrice(total)}`;
+
+  return (
+    `📒 ${title}\n\n` +
+    "```\n" +
+    header + "\n" +
+    separator + "\n" +
+    rows.join("\n") + "\n" +
+    separator + "\n" +
+    footer + "\n" +
+    "```"
+  );
+}
+
 module.exports = {
   saveExpense,
   getExpensesThisMonth,
-  getExpensesLastMonth
+  getExpensesLastMonth,
+  buildExpenseMessage
 };
