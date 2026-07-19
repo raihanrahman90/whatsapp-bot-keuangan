@@ -1,7 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 
-const FILE_NAME = path.join(__dirname, "../todos.json");
 const FILE_NAME = path.join(process.cwd(), "todos.json");
 
 function loadTodos() {
