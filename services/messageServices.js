@@ -1,4 +1,9 @@
 const { saveExpense, getExpensesLastMonth, getExpensesThisMonth } = require("./expenseServices");
+const {
+  saveTodo,
+  removeTodo,
+  getTodos
+} = require("./todoServices");
 
 async function handleIncomingMessage(sock, msg) {
   try {
@@ -17,6 +22,7 @@ async function handleIncomingMessage(sock, msg) {
 
     switch (command) {
       case "help":
+      case "menu":
         return showHelp(sock, sender);
       case "pengeluaran bulan ini":
         return showExpensesThisMonth(sock, sender, userId);
@@ -24,13 +30,18 @@ async function handleIncomingMessage(sock, msg) {
       case "pengeluaran bulan lalu":
         return showExpensesLastMonth(sock, sender, userId);
 
+      case "todo":
+        return showTodos(sock, sender, userId);
       default:
-        return handleExpenseInput(
-          sock,
-          sender,
-          userId,
-          text
-        );
+        if (text.toLowerCase().startsWith("todo:")) {
+          return handleTodoInput(sock, sender, userId, text);
+        }
+
+        if (text.toLowerCase().startsWith("remove todo:")) {
+          return handleRemoveTodo(sock, sender, userId, text);
+        }
+
+        return handleExpenseInput(sock, sender, userId, text);
     }
   } catch (err) {
     console.error("Terjadi kesalahan:", err);
@@ -132,6 +143,77 @@ function buildExpenseMessage(
   );
 }
 
+async function handleTodoInput(
+  sock,
+  sender,
+  userId,
+  text
+) {
+  const todoText = text.substring(5).trim();
+
+  if (!todoText) {
+    return sock.sendMessage(sender, {
+      text: "Format:\nTodo: Belajar NodeJS"
+    });
+  }
+
+  const todo = saveTodo(userId, todoText);
+
+  await sock.sendMessage(sender, {
+    text:
+      `✅ Todo berhasil ditambahkan\n\n` +
+      `Kode : ${todo.code}\n` +
+      `Todo : ${todo.text}`
+  });
+}
+
+async function handleRemoveTodo(
+  sock,
+  sender,
+  userId,
+  text
+) {
+  const code = text
+    .replace(/remove todo:/i, "")
+    .trim()
+    .toUpperCase();
+
+  const success = removeTodo(userId, code);
+
+  await sock.sendMessage(sender, {
+    text: success
+      ? `✅ Todo ${code} berhasil dihapus`
+      : `❌ Todo ${code} tidak ditemukan`
+  });
+}
+
+async function showTodos(
+  sock,
+  sender,
+  userId
+) {
+  const todos = getTodos(userId);
+
+  if (todos.length === 0) {
+    return sock.sendMessage(sender, {
+      text: "Belum ada todo."
+    });
+  }
+
+  const message =
+    "📝 Todo List\n\n" +
+    todos
+      .map(
+        (t, i) =>
+          `${i + 1}. [${t.code}] ${t.text}`
+      )
+      .join("\n");
+
+  await sock.sendMessage(sender, {
+    text: message
+  });
+}
+
 async function showHelp(sock, sender) {
   const message = `
 🤖 Bot Pencatatan Keuangan
@@ -152,6 +234,17 @@ Harga: 50000
 📊 Melihat Laporan
 • pengeluaran bulan ini
 • pengeluaran bulan lalu
+
+📝 Todo
+
+Tambah Todo
+Todo: Belajar Spring Boot
+
+Lihat Todo
+todo
+
+Hapus Todo
+Remove Todo: A7KD
 
 ❓ Bantuan
 • help
