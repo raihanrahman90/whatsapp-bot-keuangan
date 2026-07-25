@@ -4,7 +4,7 @@ services:
     container_name: whatsapp-bot
     depends_on:
       - postgres
-    command: sh -c "npm run migrate && npm start"
+    command: sh -c "npm start"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -18,24 +18,3 @@ services:
     volumes:
       - ./data:/app/data
       - ./auth_info:/app/auth_info
-
-  postgres:
-    image: postgres:17
-    container_name: postgres
-    restart: always
-    environment:
-      POSTGRES_DB: finance_bot
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - bot-network
-
-volumes:
-  postgres-data:
-
-networks:
-  bot-network:
