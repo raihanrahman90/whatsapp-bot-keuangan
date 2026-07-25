@@ -2,8 +2,6 @@ services:
   whatsapp-bot:
     build: .
     container_name: whatsapp-bot
-    depends_on:
-      - postgres
     command: sh -c "npm start"
     environment:
       DB_HOST: postgres
