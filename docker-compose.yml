@@ -11,8 +11,6 @@ services:
       DB_NAME: finance_bot
       DB_USER: postgres
       DB_PASSWORD: password123
-    networks:
-      - bot-network
     ports:
       - "3000:3000"
     volumes:
