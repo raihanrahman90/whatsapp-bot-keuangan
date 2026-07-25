@@ -6,11 +6,17 @@ const {
 const {
   handleIncomingMessage
 } = require("./services/messageServices");
+const { migrateJsonToDb: migrateExpensesJsonToDb } = require("./services/expenseServices");
+const { migrateJsonToDb: migrateTodosJsonToDb } = require("./services/todoServices");
 
 const P = require("pino");
 const qrcode = require("qrcode-terminal");
 
 async function startBot() {
+  // Migrate any legacy JSON data to the database before starting
+  await migrateExpensesJsonToDb();
+  await migrateTodosJsonToDb();
+
   const { state, saveCreds } =
     await useMultiFileAuthState("auth_info");
 

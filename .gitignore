@@ -19,6 +19,9 @@ session/
 
 # Data file
 expenses.json
+expenses.json.bak
+todos.json
+todos.json.bak
 
 # OS files
 .DS_Store

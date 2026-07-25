@@ -1,79 +1,51 @@
 const fs = require("fs");
 const path = require("path");
+const { truncate, formatPrice } = require("./helper");
+const expenseRepository = require("../repositories/expenseRepository");
 
 const FILE_NAME = path.join(process.cwd(), "expenses.json");
-function readExpenses() {
-  if (!fs.existsSync(FILE_NAME)) {
-    return [];
-  }
 
-  return JSON.parse(
-    fs.readFileSync(FILE_NAME, "utf8")
-  );
+function mapRowToExpense(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    item: row.description,
+    price: parseFloat(row.amount),
+    createdAt: row.created_at
+  };
 }
 
-function saveExpense(userId, item, price) {
+async function saveExpense(userId, item, price) {
   if (!userId || !item || !price) return;
   if (isNaN(price)) throw new Error("Price must be number");
-  let expenses = [];
 
-  if (fs.existsSync(FILE_NAME)) {
-    expenses = JSON.parse(
-      fs.readFileSync(FILE_NAME, "utf8")
-    );
-  }
-
-  expenses.push({
+  await expenseRepository.createExpense({
     userId,
-    item,
-    price,
-    createdAt: new Date().toISOString()
+    description: item,
+    amount: price,
+    createdAt: new Date()
   });
-
-  fs.writeFileSync(
-    FILE_NAME,
-    JSON.stringify(expenses, null, 2)
-  );
 }
 
-function getExpensesThisMonth(userId) {
+async function getExpensesThisMonth(userId) {
   const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-indexed for PG
 
-  return readExpenses().filter((e) => {
-    const date = new Date(e.createdAt);
-
-    return (
-      e.userId === userId &&
-      date.getMonth() === now.getMonth() &&
-      date.getFullYear() === now.getFullYear()
-    );
-  });
+  const rows = await expenseRepository.getExpensesForMonth(userId, year, month);
+  return rows.map(mapRowToExpense);
 }
 
-function getExpensesLastMonth(userId) {
+async function getExpensesLastMonth(userId) {
   const now = new Date();
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const year = lastMonthDate.getFullYear();
+  const month = lastMonthDate.getMonth() + 1; // 1-indexed for PG
 
-  const lastMonth =
-    now.getMonth() === 0
-      ? 11
-      : now.getMonth() - 1;
-
-  const year =
-    now.getMonth() === 0
-      ? now.getFullYear() - 1
-      : now.getFullYear();
-
-  return readExpenses().filter((e) => {
-    const date = new Date(e.createdAt);
-
-    return (
-      e.userId === userId &&
-      date.getMonth() === lastMonth &&
-      date.getFullYear() === year
-    );
-  });
+  const rows = await expenseRepository.getExpensesForMonth(userId, year, month);
+  return rows.map(mapRowToExpense);
 }
-
 
 function buildExpenseMessage(title, expenses) {
   if (expenses.length === 0) {
@@ -115,9 +87,41 @@ function buildExpenseMessage(title, expenses) {
   );
 }
 
+async function migrateJsonToDb() {
+  if (!fs.existsSync(FILE_NAME)) {
+    return;
+  }
+
+  try {
+    const data = fs.readFileSync(FILE_NAME, "utf8");
+    const expenses = JSON.parse(data);
+
+    if (Array.isArray(expenses) && expenses.length > 0) {
+      console.log(`[Migration] Found ${expenses.length} expenses in expenses.json. Migrating to database...`);
+      for (const expense of expenses) {
+        await expenseRepository.createExpense({
+          userId: expense.userId,
+          description: expense.item,
+          amount: expense.price,
+          createdAt: expense.createdAt ? new Date(expense.createdAt) : new Date()
+        });
+      }
+      console.log(`[Migration] Successfully migrated ${expenses.length} expenses to database.`);
+    }
+
+    // Rename file to backup to avoid running migration again next time
+    const backupName = FILE_NAME + ".bak";
+    fs.renameSync(FILE_NAME, backupName);
+    console.log(`[Migration] Renamed expenses.json to expenses.json.bak`);
+  } catch (err) {
+    console.error("[Migration] Failed to migrate expenses.json:", err);
+  }
+}
+
 module.exports = {
   saveExpense,
   getExpensesThisMonth,
   getExpensesLastMonth,
-  buildExpenseMessage
+  buildExpenseMessage,
+  migrateJsonToDb
 };

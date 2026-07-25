@@ -69,7 +69,7 @@ async function handleExpenseInput(
     match[2].replace(/[^\d]/g, "")
   );
 
-  saveExpense(userId, item, price);
+  await saveExpense(userId, item, price);
 
   await sock.sendMessage(sender, {
     text:
@@ -85,7 +85,7 @@ async function showExpensesThisMonth(
   userId
 ) {
   const expenses =
-    getExpensesThisMonth(userId);
+    await getExpensesThisMonth(userId);
 
   const message = buildExpenseMessage(
     "Pengeluaran Bulan Ini",
@@ -103,7 +103,7 @@ async function showExpensesLastMonth(
   userId
 ) {
   const expenses =
-    getExpensesLastMonth(userId);
+    await getExpensesLastMonth(userId);
 
   const message = buildExpenseMessage(
     "Pengeluaran Bulan Lalu",
@@ -129,7 +129,7 @@ async function handleTodoInput(
     });
   }
 
-  const todo = saveTodo(userId, todoText);
+  const todo = await saveTodo(userId, todoText);
 
   await sock.sendMessage(sender, {
     text:
@@ -150,7 +150,7 @@ async function handleRemoveTodo(
     .trim()
     .toUpperCase();
 
-  const success = removeTodo(userId, code);
+  const success = await removeTodo(userId, code);
 
   await sock.sendMessage(sender, {
     text: success
@@ -164,7 +164,7 @@ async function showTodos(
   sender,
   userId
 ) {
-  const todos = getTodos(userId);
+  const todos = await getTodos(userId);
 
   if (todos.length === 0) {
     return sock.sendMessage(sender, {
