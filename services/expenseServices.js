@@ -89,6 +89,7 @@ function buildExpenseMessage(title, expenses) {
 
 async function migrateJsonToDb() {
   if (!fs.existsSync(FILE_NAME)) {
+    console.log("expenses.json not found, skipping migration")
     return;
   }
 

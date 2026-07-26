@@ -55,6 +55,7 @@ async function getTodos(userId) {
 
 async function migrateJsonToDb() {
   if (!fs.existsSync(FILE_NAME)) {
+    console.log("todos.json not found, skipping migration")
     return;
   }
 
