@@ -3,7 +3,17 @@ const path = require("path");
 const { truncate, formatPrice } = require("./helper");
 const expenseRepository = require("../repositories/expenseRepository");
 
-const FILE_NAME = path.join(process.cwd(), "expenses.json");
+function getFilePath(filename) {
+  const dataPath = path.join(process.cwd(), "data", filename);
+  if (fs.existsSync(dataPath)) {
+    return dataPath;
+  }
+  const rootPath = path.join(process.cwd(), filename);
+  if (fs.existsSync(rootPath)) {
+    return rootPath;
+  }
+  return dataPath;
+}
 
 function mapRowToExpense(row) {
   if (!row) return null;
@@ -88,17 +98,18 @@ function buildExpenseMessage(title, expenses) {
 }
 
 async function migrateJsonToDb() {
-  if (!fs.existsSync(FILE_NAME)) {
-    console.log("expenses.json not found, skipping migration")
+  const targetFile = getFilePath("expenses.json");
+  if (!fs.existsSync(targetFile)) {
+    console.log("expenses.json not found, skipping migration");
     return;
   }
 
   try {
-    const data = fs.readFileSync(FILE_NAME, "utf8");
+    const data = fs.readFileSync(targetFile, "utf8");
     const expenses = JSON.parse(data);
 
     if (Array.isArray(expenses) && expenses.length > 0) {
-      console.log(`[Migration] Found ${expenses.length} expenses in expenses.json. Migrating to database...`);
+      console.log(`[Migration] Found ${expenses.length} expenses in ${path.basename(targetFile)}. Migrating to database...`);
       for (const expense of expenses) {
         await expenseRepository.createExpense({
           userId: expense.userId,
@@ -111,9 +122,9 @@ async function migrateJsonToDb() {
     }
 
     // Rename file to backup to avoid running migration again next time
-    const backupName = FILE_NAME + ".bak";
-    fs.renameSync(FILE_NAME, backupName);
-    console.log(`[Migration] Renamed expenses.json to expenses.json.bak`);
+    const backupName = targetFile + ".bak";
+    fs.renameSync(targetFile, backupName);
+    console.log(`[Migration] Renamed ${path.basename(targetFile)} to ${path.basename(backupName)}`);
   } catch (err) {
     console.error("[Migration] Failed to migrate expenses.json:", err);
   }

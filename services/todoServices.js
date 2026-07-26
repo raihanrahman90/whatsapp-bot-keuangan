@@ -2,7 +2,17 @@ const fs = require("fs");
 const path = require("path");
 const todoRepository = require("../repositories/todoRepository");
 
-const FILE_NAME = path.join(process.cwd(), "todos.json");
+function getFilePath(filename) {
+  const dataPath = path.join(process.cwd(), "data", filename);
+  if (fs.existsSync(dataPath)) {
+    return dataPath;
+  }
+  const rootPath = path.join(process.cwd(), filename);
+  if (fs.existsSync(rootPath)) {
+    return rootPath;
+  }
+  return dataPath;
+}
 
 function mapRowToTodo(row) {
   if (!row) return null;
@@ -54,17 +64,18 @@ async function getTodos(userId) {
 }
 
 async function migrateJsonToDb() {
-  if (!fs.existsSync(FILE_NAME)) {
-    console.log("todos.json not found, skipping migration")
+  const targetFile = getFilePath("todos.json");
+  if (!fs.existsSync(targetFile)) {
+    console.log("todos.json not found, skipping migration");
     return;
   }
 
   try {
-    const data = fs.readFileSync(FILE_NAME, "utf8");
+    const data = fs.readFileSync(targetFile, "utf8");
     const todos = JSON.parse(data);
 
     if (Array.isArray(todos) && todos.length > 0) {
-      console.log(`[Migration] Found ${todos.length} todos in todos.json. Migrating to database...`);
+      console.log(`[Migration] Found ${todos.length} todos in ${path.basename(targetFile)}. Migrating to database...`);
       for (const todo of todos) {
         const existing = await todoRepository.getTodoByCode(todo.code);
         if (!existing) {
@@ -79,9 +90,9 @@ async function migrateJsonToDb() {
       console.log(`[Migration] Successfully migrated todos to database.`);
     }
 
-    const backupName = FILE_NAME + ".bak";
-    fs.renameSync(FILE_NAME, backupName);
-    console.log(`[Migration] Renamed todos.json to todos.json.bak`);
+    const backupName = targetFile + ".bak";
+    fs.renameSync(targetFile, backupName);
+    console.log(`[Migration] Renamed ${path.basename(targetFile)} to ${path.basename(backupName)}`);
   } catch (err) {
     console.error("[Migration] Failed to migrate todos.json:", err);
   }
