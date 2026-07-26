@@ -1,6 +1,6 @@
 services:
   whatsapp-bot:
-    build: .
+    build: ./bot
     container_name: whatsapp-bot
     depends_on:
       postgres:
@@ -14,11 +14,42 @@ services:
       DB_PASSWORD: password123
     networks:
       - bot-network
-    ports:
-      - "3000:3000"
     volumes:
-      - ./data:/app/data
-      - ./auth_info:/app/auth_info
+      - ./bot/data:/app/data
+      - ./bot/auth_info:/app/auth_info
+
+  backend:
+    build: ./backend
+    container_name: whatsapp-bot-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: finance_bot
+      DB_USER: postgres
+      DB_PASSWORD: password123
+      CORS_ORIGIN: "http://localhost:8080"
+    ports:
+      - "3001:3001"
+    networks:
+      - bot-network
+    restart: unless-stopped
+
+  web-ui:
+    build: ./web
+    container_name: whatsapp-bot-web
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:3001
+    ports:
+      - "8080:8080"
+    networks:
+      - bot-network
+    restart: unless-stopped
 
   postgres:
     image: postgres:17
