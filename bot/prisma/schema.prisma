@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  BigInt             @id @default(autoincrement())
+  phoneNumber         String?            @unique @map("phone_number") @db.VarChar(15)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  lastAuthenticatedAt DateTime?          @map("last_authenticated_at") @db.Timestamp(6)
+  expenses            Expense[]
+  todos               Todo[]
+  whatsappIdentities  WhatsAppIdentity[]
+  otpChallenge        OtpChallenge?
+
+  @@map("users")
+}
+
+model Expense {
+  id             BigInt    @id @default(autoincrement())
+  amount         Decimal   @db.Decimal(15, 2)
+  category       String?   @db.VarChar(100)
+  description    String?
+  legacySenderId String    @default("") @map("legacy_sender_id") @db.VarChar(100)
+  userId         BigInt?   @map("user_id")
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("expenses")
+}
+
+model Todo {
+  id             BigInt    @id @default(autoincrement())
+  code           String    @unique @db.VarChar(10)
+  legacySenderId String    @map("legacy_sender_id") @db.VarChar(100)
+  userId         BigInt?   @map("user_id")
+  text           String
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("todos")
+}
+
+model OtpChallenge {
+  id          BigInt   @id @default(autoincrement())
+  phoneNumber String   @unique @map("phone_number") @db.VarChar(15)
+  codeHash    String   @map("code_hash") @db.VarChar(64)
+  expiresAt   DateTime @map("expires_at") @db.Timestamp(6)
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  user        User     @relation(fields: [phoneNumber], references: [phoneNumber], onDelete: Cascade)
+
+  @@map("otp_challenges")
+}
+
+model OtpRequestAttempt {
+  id          BigInt    @id @default(autoincrement())
+  phoneNumber String    @map("phone_number") @db.VarChar(15)
+  ipAddress   String?   @map("ip_address") @db.VarChar(45)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([phoneNumber, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("otp_request_attempts")
+}
+
+model WhatsAppIdentity {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt   @map("user_id")
+  whatsappId String   @unique @map("whatsapp_id") @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamp(6)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("whatsapp_identities")
+}

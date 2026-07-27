@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "node16",
+    "moduleResolution": "node16",
+    "rootDir": ".",
+    "outDir": "dist",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts", "**/*.js"],
+  "exclude": ["node_modules", "dist", "auth_info", "data", "prisma.config.ts"]
+}

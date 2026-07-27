@@ -1,5 +1,5 @@
-const { createApiServer } = require("./api/server");
-const { startWhatsAppBot } = require("./services/whatsappService");
+import { createApiServer } from "./api/server";
+import { startWhatsAppBot } from "./services/whatsappService";
 
 const port = Number(process.env.PORT || 3001);
 const app = createApiServer();
@@ -8,6 +8,6 @@ app.listen(port, () => {
   console.log(`WhatsApp bot and API running on port ${port}`);
 });
 
-startWhatsAppBot().catch((error) => {
+startWhatsAppBot().catch((error: unknown) => {
   console.error("Unable to start WhatsApp:", error);
 });

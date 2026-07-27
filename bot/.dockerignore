@@ -1,0 +1,6 @@
+node_modules
+dist
+generated
+auth_info
+data
+npm-debug.log*

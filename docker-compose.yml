@@ -13,6 +13,7 @@ services:
       DB_NAME: finance_bot
       DB_USER: postgres
       DB_PASSWORD: password123
+      DATABASE_URL: postgresql://postgres:password123@postgres:5432/finance_bot?schema=public
       CORS_ORIGIN: "http://localhost:8080"
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
       OTP_RESEND_COOLDOWN_SECONDS: 60
