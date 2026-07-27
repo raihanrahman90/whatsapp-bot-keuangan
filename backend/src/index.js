@@ -10,6 +10,10 @@ const { requireAuth } = require("./middleware/requireAuth");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+if (process.env.TRUST_PROXY && process.env.TRUST_PROXY !== "false") {
+  app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : process.env.TRUST_PROXY);
+}
+
 // Middleware
 app.use(
   cors({

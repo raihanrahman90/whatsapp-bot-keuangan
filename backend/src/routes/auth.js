@@ -8,6 +8,10 @@ const {
 } = require("../services/otpAuthService");
 
 const router = express.Router();
+const useSecureCookies =
+  process.env.SESSION_COOKIE_SECURE === "true" ||
+  (process.env.SESSION_COOKIE_SECURE === undefined &&
+    process.env.NODE_ENV === "production");
 
 router.post("/request-otp", async (req, res) => {
   try {
@@ -47,7 +51,7 @@ router.post("/verify-otp", async (req, res) => {
     res.cookie("session", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: useSecureCookies,
       maxAge: 24 * 60 * 60 * 1000,
       path: "/"
     });
@@ -73,7 +77,7 @@ router.post("/logout", (_req, res) => {
   res.clearCookie("session", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureCookies,
     path: "/"
   });
   return res.status(204).end();
