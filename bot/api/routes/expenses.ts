@@ -6,13 +6,35 @@ import { getWhatsAppIdsForUser } from "../../repositories/userRepository";
 
 const router = express.Router();
 
+router.get("/categories", async (req, res) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth;
+    const whatsappIds = await getWhatsAppIdsForUser(auth.userId, auth.phoneNumber);
+    const rows = await prisma.expense.findMany({
+      where: { whatsappId: { in: whatsappIds }, category: { not: null } },
+      distinct: ["category"],
+      select: { category: true },
+      orderBy: { category: "asc" }
+    });
+    const categories = rows
+      .map((expense) => expense.category?.trim())
+      .filter((category): category is string => Boolean(category));
+    return res.json(categories);
+  } catch (error) {
+    const message = getErrorMessage(error, "Failed to fetch expense categories");
+    console.error("GET /api/expenses/categories error:", error);
+    return res.status(500).json({ error: message });
+  }
+});
+
 router.get("/", async (req, res) => {
   try {
     const auth = (req as AuthenticatedRequest).auth;
-    const { month, year } = req.query as { month?: string; year?: string };
+    const { month, year, category: categoryQuery } = req.query as { month?: string; year?: string; category?: string };
+    const category = categoryQuery?.trim() || undefined;
     const whatsappIds = await getWhatsAppIdsForUser(auth.userId, auth.phoneNumber);
     const expenses = await prisma.expense.findMany({
-      where: { whatsappId: { in: whatsappIds } },
+      where: { whatsappId: { in: whatsappIds }, ...(category ? { category } : {}) },
       orderBy: { createdAt: "desc" }
     });
     const filtered = expenses
@@ -22,7 +44,7 @@ router.get("/", async (req, res) => {
           (!month || expense.createdAt.getMonth() + 1 === Number(month));
       })
       .slice(0, 100);
-    console.log("GET /api/expenses", { whatsappId: auth.phoneNumber, year: year || null, month: month || null, resultCount: filtered.length });
+    console.log("GET /api/expenses", { whatsappId: auth.phoneNumber, year: year || null, month: month || null, category: category || null, resultCount: filtered.length });
     return res.json(filtered.map(serializers.expenseToApi));
   } catch (error) {
     const message = getErrorMessage(error, "Failed to fetch expenses");

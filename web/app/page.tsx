@@ -60,6 +60,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([]);
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<string>("");
 
   // Modal states
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -78,13 +80,15 @@ export default function Dashboard() {
   const fetchData = async () => {
     setRefreshing(true);
     try {
-      const [resStats, resExpenses, resTodos] = await Promise.all([
-        fetch("/api/stats", { credentials: "same-origin" }),
-        fetch("/api/expenses", { credentials: "same-origin" }),
+      const query = selectedExpenseCategory ? `?${new URLSearchParams({ category: selectedExpenseCategory }).toString()}` : "";
+      const [resStats, resExpenses, resTodos, resExpenseCategories] = await Promise.all([
+        fetch(`/api/stats${query}`, { credentials: "same-origin" }),
+        fetch(`/api/expenses${query}`, { credentials: "same-origin" }),
         fetch("/api/todos", { credentials: "same-origin" }),
+        fetch("/api/expenses/categories", { credentials: "same-origin" }),
       ]);
 
-      if ([resStats, resExpenses, resTodos].some((response) => response.status === 401)) {
+      if ([resStats, resExpenses, resTodos, resExpenseCategories].some((response) => response.status === 401)) {
         setAuthState("unauthenticated");
         return;
       }
@@ -92,6 +96,11 @@ export default function Dashboard() {
       if (resStats.ok) setStats(await resStats.json());
       if (resExpenses.ok) setExpenses(await resExpenses.json());
       if (resTodos.ok) setTodos(await resTodos.json());
+      if (resExpenseCategories.ok) {
+        const categories = await resExpenseCategories.json() as string[];
+        setExpenseCategories(categories);
+        setSelectedExpenseCategory((selected) => selected && !categories.includes(selected) ? "" : selected);
+      }
       setAuthState("authenticated");
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
@@ -105,7 +114,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedExpenseCategory]);
 
   useEffect(() => {
     if (resendSeconds <= 0) return;
@@ -175,6 +184,8 @@ export default function Dashboard() {
     setPhoneNumber("");
     setOtpCode("");
     setExpenses([]);
+    setExpenseCategories([]);
+    setSelectedExpenseCategory("");
     setTodos([]);
     setStats(null);
   };
@@ -262,9 +273,10 @@ export default function Dashboard() {
 
   const filteredExpenses = expenses.filter(
     (e) =>
-      e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(e.whatsapp_id).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (e.category && e.category.toLowerCase().includes(searchQuery.toLowerCase()))
+      (selectedExpenseCategory === "" || e.category === selectedExpenseCategory) &&
+      (e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(e.whatsapp_id).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (e.category && e.category.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
   const filteredTodos = todos.filter(
@@ -493,15 +505,30 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Cari kata kunci..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
-            />
+          <div className="flex w-full max-w-md gap-2">
+            {activeTab === "expenses" && (
+              <select
+                value={selectedExpenseCategory}
+                onChange={(e) => setSelectedExpenseCategory(e.target.value)}
+                className="min-w-0 flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                aria-label="Filter kategori pengeluaran"
+              >
+                <option value="">Semua kategori</option>
+                {expenseCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            )}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Cari kata kunci..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
+              />
+            </div>
           </div>
         </div>
 

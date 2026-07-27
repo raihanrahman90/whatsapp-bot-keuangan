@@ -8,26 +8,30 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const auth = (req as AuthenticatedRequest).auth;
+    const categoryQuery = typeof req.query.category === "string" ? req.query.category : undefined;
+    const category = categoryQuery?.trim() || undefined;
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
     const monthStart = new Date(year, month - 1, 1);
     const nextMonthStart = new Date(year, month, 1);
     const whatsappIds = await getWhatsAppIdsForUser(auth.userId, auth.phoneNumber);
+    const expenseWhere = { whatsappId: { in: whatsappIds }, ...(category ? { category } : {}) };
     const [expenseStats, activeTodosCount, totalExpensesCount] = await Promise.all([
       prisma.expense.aggregate({
-        where: { whatsappId: { in: whatsappIds }, createdAt: { gte: monthStart, lt: nextMonthStart } },
+        where: { ...expenseWhere, createdAt: { gte: monthStart, lt: nextMonthStart } },
         _sum: { amount: true },
         _count: { _all: true }
       }),
       prisma.todo.count({ where: { userId: auth.userId } }),
-      prisma.expense.count({ where: { whatsappId: { in: whatsappIds } } })
+      prisma.expense.count({ where: expenseWhere })
     ]);
     return res.json({
       currentMonthSpent: Number(expenseStats._sum.amount || 0),
       currentMonthCount: expenseStats._count._all,
       activeTodosCount,
       totalExpensesCount,
+      category: category || null,
       year,
       month
     });
