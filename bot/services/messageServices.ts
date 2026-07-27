@@ -36,7 +36,7 @@ async function handleExpenseInput(sock: WASocket, sender: string, text: string, 
   const item = match[1].trim();
   const price = Number.parseInt(match[2].replace(/[^\d]/g, ""), 10);
   await saveExpense(whatsappId, item, price);
-  await sock.sendMessage(sender, { text: `âœ… Pengeluaran dicatat\nBarang: ${item}\nHarga: Rp${price.toLocaleString("id-ID")}` });
+  await sock.sendMessage(sender, { text: `📝 Pengeluaran dicatat\nBarang: ${item}\nHarga: Rp${price.toLocaleString("id-ID")}` });
 }
 
 async function showExpensesThisMonth(sock: WASocket, sender: string, whatsappId: string): Promise<void> {
@@ -54,7 +54,7 @@ async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, t
     return;
   }
   const todo = await saveTodo(userId, todoText);
-  await sock.sendMessage(sender, { text: `âœ… Todo berhasil ditambahkan\n\nKode : ${todo.code}\nTodo : ${todo.text}` });
+  await sock.sendMessage(sender, { text: `📝 Todo berhasil ditambahkan\n\nKode : ${todo.code}\nTodo : ${todo.text}` });
 }
 
 async function handleRemoveTodo(sock: WASocket, sender: string, userId: bigint, text: string): Promise<void> {
@@ -69,7 +69,7 @@ async function showTodos(sock: WASocket, sender: string, userId: bigint): Promis
     await sock.sendMessage(sender, { text: "Belum ada todo." });
     return;
   }
-  const message = "ðŸ“ Todo List\n\n" + todos.map((todo, index) => `${index + 1}. [${todo.code}] ${todo.text}`).join("\n");
+  const message = "📝 Todo List\n\n" + todos.map((todo, index) => `${index + 1}. [${todo.code}] ${todo.text}`).join("\n");
   await sock.sendMessage(sender, { text: message });
 }
 
