@@ -39,7 +39,10 @@ services:
     restart: unless-stopped
 
   web-ui:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        BACKEND_URL: http://backend:3001
     container_name: whatsapp-bot-web
     depends_on:
       - backend
