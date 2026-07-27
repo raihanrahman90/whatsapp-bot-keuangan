@@ -1,0 +1,99 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createExpense, getExpensesForMonth } from "../repositories/expenseRepository";
+import { formatPrice, truncate } from "../utils/formatters";
+
+export interface ExpenseSummary {
+  id: bigint;
+  userId: bigint | null;
+  item: string | null;
+  price: number;
+  createdAt: Date | null;
+}
+
+interface LegacyExpense {
+  userId?: bigint | number | string;
+  item?: string;
+  price?: number | string;
+  createdAt?: string;
+}
+
+function getFilePath(filename: string): string {
+  const dataPath = path.join(process.cwd(), "data", filename);
+  if (fs.existsSync(dataPath)) return dataPath;
+
+  const rootPath = path.join(process.cwd(), filename);
+  return fs.existsSync(rootPath) ? rootPath : dataPath;
+}
+
+function mapRowToExpense(row: Awaited<ReturnType<typeof createExpense>>): ExpenseSummary {
+  return {
+    id: row.id,
+    userId: row.userId,
+    item: row.description,
+    price: Number(row.amount),
+    createdAt: row.createdAt
+  };
+}
+
+export async function saveExpense(userId: bigint, item: string, price: number, whatsappId = ""): Promise<void> {
+  if (!userId || !item || !price) return;
+  if (Number.isNaN(price)) throw new Error("Price must be number");
+
+  await createExpense({ userId, whatsappId, description: item, amount: price, createdAt: new Date() });
+}
+
+export async function getExpensesThisMonth(userId: bigint): Promise<ExpenseSummary[]> {
+  const now = new Date();
+  const rows = await getExpensesForMonth(userId, now.getFullYear(), now.getMonth() + 1);
+  return rows.map(mapRowToExpense);
+}
+
+export async function getExpensesLastMonth(userId: bigint): Promise<ExpenseSummary[]> {
+  const now = new Date();
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const rows = await getExpensesForMonth(userId, lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1);
+  return rows.map(mapRowToExpense);
+}
+
+export function buildExpenseMessage(title: string, expenses: ExpenseSummary[]): string {
+  if (expenses.length === 0) return `Belum ada ${title.toLowerCase()}.`;
+
+  let total = 0;
+  const header = `${"No".padEnd(4)}${"Barang".padEnd(12)}${"Harga".padStart(12)}`;
+  const separator = "-".repeat(28);
+  const rows = expenses.map((expense, index) => {
+    total += expense.price;
+    return `${String(index + 1).padEnd(4)}${truncate(expense.item || "").padEnd(12)}${formatPrice(expense.price)}`;
+  });
+  const footer = `${"Total".padEnd(16)}${formatPrice(total)}`;
+  return `ðŸ“’ ${title}\n\n\`\`\`\n${header}\n${separator}\n${rows.join("\n")}\n${separator}\n${footer}\n\`\`\``;
+}
+
+export async function migrateJsonToDb(): Promise<void> {
+  const targetFile = getFilePath("expenses.json");
+  if (!fs.existsSync(targetFile)) {
+    console.log("expenses.json not found, skipping migration");
+    return;
+  }
+
+  try {
+    const expenses = JSON.parse(fs.readFileSync(targetFile, "utf8")) as LegacyExpense[];
+    if (Array.isArray(expenses) && expenses.length > 0) {
+      console.log(`[Migration] Found ${expenses.length} expenses in ${path.basename(targetFile)}. Migrating to database...`);
+      for (const expense of expenses) {
+        if (expense.userId == null || !expense.item || expense.price == null) continue;
+        await createExpense({
+          userId: expense.userId,
+          description: expense.item,
+          amount: expense.price,
+          createdAt: expense.createdAt ? new Date(expense.createdAt) : new Date()
+        });
+      }
+      console.log(`[Migration] Successfully migrated ${expenses.length} expenses to database.`);
+    }
+    fs.renameSync(targetFile, `${targetFile}.bak`);
+  } catch (error) {
+    console.error("[Migration] Failed to migrate expenses.json:", error);
+  }
+}

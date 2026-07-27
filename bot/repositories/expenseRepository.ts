@@ -7,7 +7,7 @@ interface CreateExpenseInput {
   category?: string | null;
   description?: string | null;
   userId?: UserId | null;
-  legacySenderId?: string | null;
+  whatsappId?: string | null;
   createdAt?: Date;
 }
 
@@ -22,7 +22,7 @@ export async function createExpense(data: CreateExpenseInput) {
       category: data.category || null,
       description: data.description || null,
       userId: data.userId == null ? null : toUserId(data.userId),
-      legacySenderId: data.legacySenderId || "",
+      whatsappId: data.whatsappId || "",
       createdAt: data.createdAt || new Date()
     }
   });

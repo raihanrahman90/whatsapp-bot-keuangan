@@ -1,49 +1,38 @@
-const {
-  default: makeWASocket,
-  useMultiFileAuthState
-} = require("@whiskeysockets/baileys");
-const P = require("pino");
-const qrcode = require("qrcode-terminal");
+import type { WASocket } from "@whiskeysockets/baileys" with { "resolution-mode": "import" };
+import P from "pino";
+import * as qrcode from "qrcode-terminal";
+import { handleIncomingMessage } from "./messageServices";
+import { sendOtp } from "./otpDeliveryService";
 
-const { handleIncomingMessage } = require("./messageServices");
-const { sendOtp } = require("./otpDeliveryService");
-
-let activeSocket = null;
+let activeSocket: WASocket | null = null;
 let isWhatsAppConnected = false;
-let reconnectTimer = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
 
-function scheduleReconnect() {
+function scheduleReconnect(): void {
   if (reconnectTimer) return;
-
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    startWhatsAppBot().catch((error) => {
+    startWhatsAppBot().catch((error: unknown) => {
       console.error("Unable to reconnect WhatsApp:", error);
       scheduleReconnect();
     });
   }, 3_000);
 }
 
-async function startWhatsAppBot() {
+export async function startWhatsAppBot(): Promise<void> {
+  const { default: makeWASocket, useMultiFileAuthState } = await import("@whiskeysockets/baileys");
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-  const socket = makeWASocket({
-    auth: state,
-    logger: P({ level: "silent" })
-  });
-
+  const socket = makeWASocket({ auth: state, logger: P({ level: "silent" }) });
   activeSocket = socket;
   socket.ev.on("creds.update", saveCreds);
 
   socket.ev.on("connection.update", (update) => {
     const { connection, qr, lastDisconnect } = update;
-
     if (qr) qrcode.generate(qr, { small: true });
-
     if (connection === "open") {
       isWhatsAppConnected = true;
       console.log("WhatsApp connected");
     }
-
     if (connection === "close") {
       isWhatsAppConnected = false;
       if (activeSocket === socket) activeSocket = null;
@@ -55,7 +44,6 @@ async function startWhatsAppBot() {
   socket.ev.on("messages.upsert", async ({ messages }) => {
     const message = messages[0];
     if (!message?.message || message.key.fromMe) return;
-
     try {
       await handleIncomingMessage(socket, message);
     } catch (error) {
@@ -64,15 +52,7 @@ async function startWhatsAppBot() {
   });
 }
 
-async function deliverOtp(phoneNumber, code, expiresInMinutes) {
-  if (!activeSocket || !isWhatsAppConnected) {
-    throw new Error("WhatsApp bot is not connected");
-  }
-
+export async function deliverOtp(phoneNumber: unknown, code: unknown, expiresInMinutes: number): Promise<void> {
+  if (!activeSocket || !isWhatsAppConnected) throw new Error("WhatsApp bot is not connected");
   await sendOtp(activeSocket, phoneNumber, code, expiresInMinutes);
 }
-
-module.exports = {
-  startWhatsAppBot,
-  deliverOtp
-};

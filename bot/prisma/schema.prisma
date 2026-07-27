@@ -26,10 +26,10 @@ model Expense {
   amount         Decimal   @db.Decimal(15, 2)
   category       String?   @db.VarChar(100)
   description    String?
-  legacySenderId String    @default("") @map("legacy_sender_id") @db.VarChar(100)
-  userId         BigInt?   @map("user_id")
-  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
-  user           User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  whatsappId String    @default("") @map("whatsapp_id") @db.VarChar(100)
+  userId     BigInt?   @map("user_id")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@map("expenses")

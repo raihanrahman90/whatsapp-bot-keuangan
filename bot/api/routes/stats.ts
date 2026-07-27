@@ -1,9 +1,12 @@
-const express = require("express");
-const prisma = require("../../config/prisma");
+import express = require("express");
+import prisma = require("../../config/prisma");
+import { getErrorMessage, type AuthenticatedRequest } from "../types";
+
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
+    const auth = (req as AuthenticatedRequest).auth;
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
@@ -11,12 +14,12 @@ router.get("/", async (req, res) => {
     const nextMonthStart = new Date(year, month, 1);
     const [expenseStats, activeTodosCount, totalExpensesCount] = await Promise.all([
       prisma.expense.aggregate({
-        where: { userId: req.auth.userId, createdAt: { gte: monthStart, lt: nextMonthStart } },
+        where: { userId: auth.userId, createdAt: { gte: monthStart, lt: nextMonthStart } },
         _sum: { amount: true },
         _count: { _all: true }
       }),
-      prisma.todo.count({ where: { userId: req.auth.userId } }),
-      prisma.expense.count({ where: { userId: req.auth.userId } })
+      prisma.todo.count({ where: { userId: auth.userId } }),
+      prisma.expense.count({ where: { userId: auth.userId } })
     ]);
     return res.json({
       currentMonthSpent: Number(expenseStats._sum.amount || 0),
@@ -27,9 +30,10 @@ router.get("/", async (req, res) => {
       month
     });
   } catch (error) {
+    const message = getErrorMessage(error, "Failed to fetch stats");
     console.error("GET /api/stats error:", error);
-    return res.status(500).json({ error: error.message || "Failed to fetch stats" });
+    return res.status(500).json({ error: message });
   }
 });
 
-module.exports = router;
+export = router;
