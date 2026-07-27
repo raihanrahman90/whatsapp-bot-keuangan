@@ -4,6 +4,7 @@ const cors = require("cors");
 const expensesRouter = require("./routes/expenses");
 const todosRouter = require("./routes/todos");
 const statsRouter = require("./routes/stats");
+const authRouter = require("./routes/auth");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,6 +14,7 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "*",
     methods: ["GET", "POST", "DELETE", "PATCH"],
+    credentials: true,
   })
 );
 app.use(express.json());
@@ -23,6 +25,7 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
+app.use("/api/auth", authRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/todos", todosRouter);
 app.use("/api/stats", statsRouter);

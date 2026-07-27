@@ -12,6 +12,8 @@ services:
       DB_NAME: finance_bot
       DB_USER: postgres
       DB_PASSWORD: password123
+      OTP_BRIDGE_PORT: 3000
+      OTP_BRIDGE_SECRET: ${OTP_BRIDGE_SECRET:?OTP_BRIDGE_SECRET must be set}
     networks:
       - bot-network
     volumes:
@@ -32,6 +34,9 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password123
       CORS_ORIGIN: "http://localhost:8080"
+      OTP_BRIDGE_URL: http://whatsapp-bot:3000
+      OTP_BRIDGE_SECRET: ${OTP_BRIDGE_SECRET:?OTP_BRIDGE_SECRET must be set}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
     ports:
       - "3001:3001"
     networks:

@@ -6,16 +6,22 @@ const {
 const {
   handleIncomingMessage
 } = require("./services/messageServices");
+const { startOtpDeliveryBridge } = require("./services/otpDeliveryBridge");
 const { migrateJsonToDb: migrateExpensesJsonToDb } = require("./services/expenseServices");
 const { migrateJsonToDb: migrateTodosJsonToDb } = require("./services/todoServices");
 
 const P = require("pino");
 const qrcode = require("qrcode-terminal");
 
+let activeSocket = null;
+let isWhatsAppConnected = false;
+
+startOtpDeliveryBridge({
+  getSocket: () => activeSocket,
+  isWhatsAppConnected: () => isWhatsAppConnected
+});
+
 async function startBot() {
-  // Migrate any legacy JSON data to the database before starting
-  await migrateExpensesJsonToDb();
-  await migrateTodosJsonToDb();
 
   const { state, saveCreds } =
     await useMultiFileAuthState("auth_info");
@@ -24,6 +30,7 @@ async function startBot() {
     auth: state,
     logger: P({ level: "silent" })
   });
+  activeSocket = sock;
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -35,10 +42,12 @@ async function startBot() {
     }
 
     if (connection === "open") {
+      isWhatsAppConnected = true;
       console.log("WhatsApp Connected");
     }
 
     if (connection === "close") {
+        isWhatsAppConnected = false;
         startBot();
     }
     if (lastDisconnect) {
