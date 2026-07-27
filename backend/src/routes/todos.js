@@ -5,19 +5,14 @@ const pool = require("../config/db");
 // GET /api/todos
 router.get("/", async (req, res) => {
   try {
-    const { userId } = req.query;
+    const query = `
+      SELECT code, user_id, text, created_at
+      FROM todos
+      WHERE user_id = $1
+      ORDER BY created_at DESC;
+    `;
 
-    let query = "SELECT code, user_id, text, created_at FROM todos";
-    const params = [];
-
-    if (userId) {
-      params.push(userId);
-      query += " WHERE user_id = $1";
-    }
-
-    query += " ORDER BY created_at DESC;";
-
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, [req.auth.phoneNumber]);
     res.json(result.rows);
   } catch (err) {
     console.error("GET /api/todos error:", err);
@@ -28,12 +23,12 @@ router.get("/", async (req, res) => {
 // POST /api/todos
 router.post("/", async (req, res) => {
   try {
-    const { userId, text } = req.body;
+    const { text } = req.body;
 
-    if (!userId || !text) {
+    if (!text) {
       return res
         .status(400)
-        .json({ error: "Missing required fields: userId, text" });
+        .json({ error: "Missing required field: text" });
     }
 
     // Generate a unique 2-char code (retry on collision)
@@ -61,7 +56,7 @@ router.post("/", async (req, res) => {
       RETURNING *;
     `;
 
-    const result = await pool.query(query, [code, userId, text]);
+    const result = await pool.query(query, [code, req.auth.phoneNumber, text]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("POST /api/todos error:", err);
@@ -70,25 +65,25 @@ router.post("/", async (req, res) => {
 });
 
 // DELETE /api/todos/:code
-router.delete("/:code", async (req, res) => {
+async function deleteTodo(req, res) {
   try {
-    const code = req.params.code.toUpperCase();
-    const { userId } = req.query;
-
-    let query = "DELETE FROM todos WHERE code = $1";
-    const params = [code];
-
-    if (userId) {
-      query += " AND user_id = $2";
-      params.push(userId);
+    const code = String(req.params.code || req.query.code || "").toUpperCase();
+    if (!code) {
+      return res.status(400).json({ error: "Todo code is required" });
     }
 
-    const result = await pool.query(query, params);
+    const result = await pool.query(
+      "DELETE FROM todos WHERE code = $1 AND user_id = $2",
+      [code, req.auth.phoneNumber]
+    );
     res.json({ deleted: (result.rowCount ?? 0) > 0 });
   } catch (err) {
     console.error("DELETE /api/todos error:", err);
     res.status(500).json({ error: err.message || "Failed to delete todo" });
   }
-});
+}
+
+router.delete("/", deleteTodo);
+router.delete("/:code", deleteTodo);
 
 module.exports = router;

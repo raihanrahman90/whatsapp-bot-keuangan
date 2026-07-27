@@ -37,6 +37,9 @@ services:
       OTP_BRIDGE_URL: http://whatsapp-bot:3000
       OTP_BRIDGE_SECRET: ${OTP_BRIDGE_SECRET:?OTP_BRIDGE_SECRET must be set}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
+      OTP_RESEND_COOLDOWN_SECONDS: 60
+      OTP_RATE_LIMIT_WINDOW_SECONDS: 900
+      OTP_MAX_REQUESTS_PER_WINDOW: 5
     ports:
       - "3001:3001"
     networks:

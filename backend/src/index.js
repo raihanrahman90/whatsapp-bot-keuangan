@@ -5,6 +5,7 @@ const expensesRouter = require("./routes/expenses");
 const todosRouter = require("./routes/todos");
 const statsRouter = require("./routes/stats");
 const authRouter = require("./routes/auth");
+const { requireAuth } = require("./middleware/requireAuth");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,9 +27,9 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRouter);
-app.use("/api/expenses", expensesRouter);
-app.use("/api/todos", todosRouter);
-app.use("/api/stats", statsRouter);
+app.use("/api/expenses", requireAuth, expensesRouter);
+app.use("/api/todos", requireAuth, todosRouter);
+app.use("/api/stats", requireAuth, statsRouter);
 
 // 404 handler
 app.use((req, res) => {

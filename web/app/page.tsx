@@ -15,6 +15,9 @@ import {
   ListTodo,
   Tag,
   Search,
+  ShieldCheck,
+  Smartphone,
+  LogOut,
 } from "lucide-react";
 
 interface Expense {
@@ -43,6 +46,13 @@ interface Stats {
 }
 
 export default function Dashboard() {
+  const [authState, setAuthState] = useState<"checking" | "unauthenticated" | "authenticated">("checking");
+  const [authStep, setAuthStep] = useState<"phone" | "otp">("phone");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
   const [activeTab, setActiveTab] = useState<"expenses" | "todos">("expenses");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -57,13 +67,11 @@ export default function Dashboard() {
 
   // Form states
   const [expenseForm, setExpenseForm] = useState({
-    userId: "web-user",
     description: "",
     amount: "",
     category: "Umum",
   });
   const [todoForm, setTodoForm] = useState({
-    userId: "web-user",
     text: "",
   });
 
@@ -71,16 +79,24 @@ export default function Dashboard() {
     setRefreshing(true);
     try {
       const [resStats, resExpenses, resTodos] = await Promise.all([
-        fetch("/api/stats"),
-        fetch("/api/expenses"),
-        fetch("/api/todos"),
+        fetch("/api/stats", { credentials: "same-origin" }),
+        fetch("/api/expenses", { credentials: "same-origin" }),
+        fetch("/api/todos", { credentials: "same-origin" }),
       ]);
+
+      if ([resStats, resExpenses, resTodos].some((response) => response.status === 401)) {
+        setAuthState("unauthenticated");
+        return;
+      }
 
       if (resStats.ok) setStats(await resStats.json());
       if (resExpenses.ok) setExpenses(await resExpenses.json());
       if (resTodos.ok) setTodos(await resTodos.json());
+      setAuthState("authenticated");
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
+      setAuthError("Tidak dapat terhubung ke server. Coba lagi setelah server tersedia.");
+      setAuthState("unauthenticated");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,6 +106,78 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendSeconds((seconds) => Math.max(seconds - 1, 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendSeconds]);
+
+  const requestOtp = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError("");
+
+    try {
+      const response = await fetch("/api/auth/request-otp", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.retryAfterSeconds) setResendSeconds(data.retryAfterSeconds);
+        throw new Error(data.error || "Gagal mengirim OTP");
+      }
+
+      setPhoneNumber(data.phoneNumber);
+      setOtpCode("");
+      setAuthStep("otp");
+      setResendSeconds(60);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Gagal mengirim OTP");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const verifyOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError("");
+
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, code: otpCode }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "OTP tidak valid");
+
+      setAuthState("authenticated");
+      await fetchData();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "OTP tidak valid");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    setAuthState("unauthenticated");
+    setAuthStep("phone");
+    setPhoneNumber("");
+    setOtpCode("");
+    setExpenses([]);
+    setTodos([]);
+    setStats(null);
+  };
 
   const formatIDR = (amount: number | string) => {
     const num = typeof amount === "number" ? amount : parseFloat(amount);
@@ -119,7 +207,6 @@ export default function Dashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: expenseForm.userId,
           description: expenseForm.description,
           amount: parseFloat(expenseForm.amount),
           category: expenseForm.category,
@@ -128,7 +215,7 @@ export default function Dashboard() {
 
       if (res.ok) {
         setIsExpenseModalOpen(false);
-        setExpenseForm({ userId: "web-user", description: "", amount: "", category: "Umum" });
+        setExpenseForm({ description: "", amount: "", category: "Umum" });
         fetchData();
       }
     } catch (err) {
@@ -145,14 +232,13 @@ export default function Dashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: todoForm.userId,
           text: todoForm.text,
         }),
       });
 
       if (res.ok) {
         setIsTodoModalOpen(false);
-        setTodoForm({ userId: "web-user", text: "" });
+        setTodoForm({ text: "" });
         fetchData();
       }
     } catch (err) {
@@ -188,6 +274,80 @@ export default function Dashboard() {
       t.user_id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  if (authState !== "authenticated") {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        <section className="glass-card w-full max-w-md rounded-2xl border border-slate-800 p-8 shadow-2xl">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/30">
+              <ShieldCheck className="h-7 w-7 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">Masuk ke Dashboard</h1>
+            <p className="mt-2 text-sm text-slate-400">Verifikasi nomor WhatsApp Anda dengan kode OTP dari bot.</p>
+          </div>
+
+          {authState === "checking" ? (
+            <div className="flex flex-col items-center py-8 text-slate-400">
+              <RefreshCw className="mb-3 h-7 w-7 animate-spin text-indigo-400" />
+              Memeriksa sesi...
+            </div>
+          ) : authStep === "phone" ? (
+            <form onSubmit={requestOtp} className="space-y-5">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-300">Nomor WhatsApp</label>
+                <div className="relative">
+                  <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="tel"
+                    required
+                    autoComplete="tel"
+                    placeholder="6281234567890"
+                    value={phoneNumber}
+                    onChange={(event) => setPhoneNumber(event.target.value)}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900 py-3 pl-10 pr-3 text-sm text-slate-100 outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">Gunakan format internasional, contoh: 6281234567890.</p>
+              </div>
+              {authError && <p className="rounded-lg bg-rose-500/10 p-3 text-sm text-rose-300">{authError}</p>}
+              <button disabled={authSubmitting} className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60">
+                {authSubmitting ? "Mengirim OTP..." : "Kirim OTP melalui WhatsApp"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={verifyOtp} className="space-y-5">
+              <p className="rounded-lg bg-slate-900 p-3 text-center text-sm text-slate-300">Kode dikirim ke <span className="font-mono text-white">{phoneNumber}</span></p>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-300">Kode OTP</label>
+                <input
+                  type="text"
+                  required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, ""))}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-center font-mono text-xl tracking-[0.45em] text-slate-100 outline-none focus:border-indigo-500"
+                />
+              </div>
+              {authError && <p className="rounded-lg bg-rose-500/10 p-3 text-sm text-rose-300">{authError}</p>}
+              <button disabled={authSubmitting || otpCode.length !== 6} className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60">
+                {authSubmitting ? "Memverifikasi..." : "Verifikasi dan Masuk"}
+              </button>
+              <div className="flex items-center justify-between text-sm">
+                <button type="button" onClick={() => { setAuthStep("phone"); setAuthError(""); }} className="text-slate-400 hover:text-white">Ubah nomor</button>
+                <button type="button" disabled={resendSeconds > 0 || authSubmitting} onClick={() => requestOtp()} className="text-indigo-400 hover:text-indigo-300 disabled:text-slate-600">
+                  {resendSeconds > 0 ? `Kirim ulang (${resendSeconds}s)` : "Kirim ulang OTP"}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Header */}
@@ -213,6 +373,14 @@ export default function Dashboard() {
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center space-x-2 text-sm border border-slate-700/50"
+              title="Keluar"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Keluar</span>
             </button>
             <button
               onClick={() => (activeTab === "expenses" ? setIsExpenseModalOpen(true) : setIsTodoModalOpen(true))}
@@ -448,17 +616,6 @@ export default function Dashboard() {
 
             <form onSubmit={handleAddExpense} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">User ID / Pengirim</label>
-                <input
-                  type="text"
-                  required
-                  value={expenseForm.userId}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, userId: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Nama Barang / Deskripsi</label>
                 <input
                   type="text"
@@ -512,17 +669,6 @@ export default function Dashboard() {
             </h3>
 
             <form onSubmit={handleAddTodo} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">User ID / Pengirim</label>
-                <input
-                  type="text"
-                  required
-                  value={todoForm.userId}
-                  onChange={(e) => setTodoForm({ ...todoForm, userId: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Isi Tugas</label>
                 <textarea

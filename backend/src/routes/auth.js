@@ -1,6 +1,7 @@
 const express = require("express");
 const {
   OTP_TTL_MS,
+  OtpRateLimitError,
   requestOtp,
   verifyOtp,
   createSessionToken
@@ -11,7 +12,7 @@ const router = express.Router();
 router.post("/request-otp", async (req, res) => {
   try {
     const { phoneNumber } = req.body || {};
-    const result = await requestOtp(phoneNumber);
+    const result = await requestOtp(phoneNumber, req.ip);
 
     return res.status(202).json({
       message: "OTP sent to WhatsApp",
@@ -19,9 +20,21 @@ router.post("/request-otp", async (req, res) => {
       expiresInSeconds: OTP_TTL_MS / 1000
     });
   } catch (error) {
-    const status = error.message.includes("phoneNumber") ? 400 : 503;
+    const status = error.message.includes("phoneNumber")
+      ? 400
+      : error instanceof OtpRateLimitError
+        ? 429
+        : 503;
     console.error("POST /api/auth/request-otp error:", error.message);
-    return res.status(status).json({ error: error.message });
+    if (error instanceof OtpRateLimitError) {
+      res.set("Retry-After", String(error.retryAfterSeconds));
+    }
+    return res.status(status).json({
+      error: error.message,
+      ...(error instanceof OtpRateLimitError
+        ? { retryAfterSeconds: error.retryAfterSeconds }
+        : {})
+    });
   }
 });
 
@@ -54,6 +67,16 @@ router.post("/verify-otp", async (req, res) => {
       error: status === 500 ? "Unable to verify OTP" : error.message
     });
   }
+});
+
+router.post("/logout", (_req, res) => {
+  res.clearCookie("session", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
+  });
+  return res.status(204).end();
 });
 
 module.exports = router;

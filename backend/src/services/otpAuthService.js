@@ -4,6 +4,23 @@ const pool = require("../config/db");
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_LENGTH = 6;
 const MAX_VERIFY_ATTEMPTS = 5;
+const OTP_RESEND_COOLDOWN_MS = Number(
+  process.env.OTP_RESEND_COOLDOWN_SECONDS || 60
+) * 1000;
+const OTP_RATE_LIMIT_WINDOW_MS = Number(
+  process.env.OTP_RATE_LIMIT_WINDOW_SECONDS || 15 * 60
+) * 1000;
+const OTP_MAX_REQUESTS_PER_WINDOW = Number(
+  process.env.OTP_MAX_REQUESTS_PER_WINDOW || 5
+);
+
+class OtpRateLimitError extends Error {
+  constructor(message, retryAfterSeconds) {
+    super(message);
+    this.name = "OtpRateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
 
 function normalizePhoneNumber(phoneNumber) {
   const normalized = String(phoneNumber || "").replace(/[^\d]/g, "");
@@ -56,10 +73,100 @@ async function deliverOtp(phoneNumber, code) {
   }
 }
 
-async function requestOtp(phoneNumber) {
+async function reserveOtpRequest(phoneNumber, ipAddress) {
+  const client = await pool.connect();
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - OTP_RATE_LIMIT_WINDOW_MS);
+  let transactionOpen = false;
+
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    await client.query(
+      `INSERT INTO users (phone_number)
+       VALUES ($1)
+       ON CONFLICT (phone_number) DO NOTHING`,
+      [phoneNumber]
+    );
+    await client.query(
+      "SELECT id FROM users WHERE phone_number = $1 FOR UPDATE",
+      [phoneNumber]
+    );
+    await client.query(
+      "DELETE FROM otp_request_attempts WHERE created_at < $1",
+      [windowStart]
+    );
+
+    const latestRequest = await client.query(
+      `SELECT created_at
+       FROM otp_request_attempts
+       WHERE phone_number = $1
+       ORDER BY created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [phoneNumber]
+    );
+    const lastRequestedAt = latestRequest.rows[0]?.created_at;
+
+    if (
+      lastRequestedAt &&
+      now.getTime() - new Date(lastRequestedAt).getTime() < OTP_RESEND_COOLDOWN_MS
+    ) {
+      const elapsedMs = now.getTime() - new Date(lastRequestedAt).getTime();
+      const retryAfterSeconds = Math.ceil(
+        (OTP_RESEND_COOLDOWN_MS - elapsedMs) / 1000
+      );
+      await client.query("COMMIT");
+      transactionOpen = false;
+      throw new OtpRateLimitError(
+        "Please wait before requesting another OTP",
+        retryAfterSeconds
+      );
+    }
+
+    const limits = await client.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE phone_number = $1) AS phone_count,
+         COUNT(*) FILTER (WHERE ip_address = $2) AS ip_count
+       FROM otp_request_attempts
+       WHERE created_at >= $3`,
+      [phoneNumber, ipAddress || null, windowStart]
+    );
+    const { phone_count: phoneCount, ip_count: ipCount } = limits.rows[0];
+
+    if (
+      Number(phoneCount) >= OTP_MAX_REQUESTS_PER_WINDOW ||
+      (ipAddress && Number(ipCount) >= OTP_MAX_REQUESTS_PER_WINDOW)
+    ) {
+      await client.query("COMMIT");
+      transactionOpen = false;
+      throw new OtpRateLimitError(
+        "Too many OTP requests. Please try again later",
+        Math.ceil(OTP_RATE_LIMIT_WINDOW_MS / 1000)
+      );
+    }
+
+    await client.query(
+      "INSERT INTO otp_request_attempts (phone_number, ip_address) VALUES ($1, $2)",
+      [phoneNumber, ipAddress || null]
+    );
+    await client.query("COMMIT");
+    transactionOpen = false;
+  } catch (error) {
+    if (transactionOpen) {
+      await client.query("ROLLBACK");
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function requestOtp(phoneNumber, ipAddress) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
   const code = createOtp();
 
+  await reserveOtpRequest(normalizedPhoneNumber, ipAddress);
   await deliverOtp(normalizedPhoneNumber, code);
 
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
@@ -180,6 +287,7 @@ function createSessionToken(phoneNumber) {
 
 module.exports = {
   OTP_TTL_MS,
+  OtpRateLimitError,
   requestOtp,
   verifyOtp,
   createSessionToken

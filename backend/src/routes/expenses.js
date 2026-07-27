@@ -5,17 +5,12 @@ const pool = require("../config/db");
 // GET /api/expenses
 router.get("/", async (req, res) => {
   try {
-    const { userId, month, year } = req.query;
+    const { month, year } = req.query;
 
     let query =
       "SELECT id, user_id, amount, category, description, created_at FROM expenses";
-    const params = [];
-    const conditions = [];
-
-    if (userId) {
-      params.push(userId);
-      conditions.push(`user_id = $${params.length}`);
-    }
+    const params = [req.auth.phoneNumber];
+    const conditions = ["user_id = $1"];
 
     if (year) {
       params.push(year);
@@ -44,12 +39,12 @@ router.get("/", async (req, res) => {
 // POST /api/expenses
 router.post("/", async (req, res) => {
   try {
-    const { userId, description, amount, category } = req.body;
+    const { description, amount, category } = req.body;
 
-    if (!userId || !description || amount === undefined) {
+    if (!description || amount === undefined) {
       return res
         .status(400)
-        .json({ error: "Missing required fields: userId, description, amount" });
+        .json({ error: "Missing required fields: description, amount" });
     }
 
     const query = `
@@ -59,7 +54,7 @@ router.post("/", async (req, res) => {
     `;
 
     const result = await pool.query(query, [
-      userId,
+      req.auth.phoneNumber,
       description,
       amount,
       category || null,
