@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const pool = require("../config/db");
 
 function parseCookies(cookieHeader) {
   return String(cookieHeader || "")
@@ -47,7 +48,7 @@ function verifySessionToken(token) {
   }
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const { session } = parseCookies(req.headers.cookie);
   const authenticatedUser = verifySessionToken(session);
 
@@ -55,8 +56,19 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  req.auth = authenticatedUser;
-  return next();
+  try {
+    const result = await pool.query(
+      "SELECT id FROM users WHERE phone_number = $1",
+      [authenticatedUser.phoneNumber]
+    );
+    if (!result.rowCount) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    req.auth = { ...authenticatedUser, userId: result.rows[0].id };
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 }
 
 module.exports = {

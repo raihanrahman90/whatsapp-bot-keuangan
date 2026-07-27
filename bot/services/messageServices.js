@@ -4,11 +4,15 @@ const {
   removeTodo,
   getTodos
 } = require("./todoServices");
+const { resolveUserId } = require("../repositories/userRepository");
 
 async function handleIncomingMessage(sock, msg) {
   try {
     const sender = msg.key.remoteJid;
-    const userId = sender.split("@")[0];
+    const userId = await resolveUserId({
+      remoteJid: sender,
+      remoteJidAlt: msg.key.remoteJidAlt
+    });
 
     const text =
       msg.message?.conversation ||
@@ -16,7 +20,7 @@ async function handleIncomingMessage(sock, msg) {
 
     if (!text) return;
 
-    console.log(`[${userId}] ${text}`);
+    console.log(`[user:${userId}] ${text}`);
 
     const command = text.trim().toLowerCase();
 

@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
        WHERE EXTRACT(YEAR FROM created_at) = $1
          AND EXTRACT(MONTH FROM created_at) = $2
          AND user_id = $3;`,
-      [currentYear, currentMonth, req.auth.phoneNumber]
+      [currentYear, currentMonth, req.auth.userId]
     );
 
     const currentMonthSpent = parseFloat(
@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
     // Active todos count
     const todoStatsResult = await pool.query(
       "SELECT COUNT(*) AS total_todos FROM todos WHERE user_id = $1;",
-      [req.auth.phoneNumber]
+      [req.auth.userId]
     );
     const activeTodosCount = parseInt(
       todoStatsResult.rows[0].total_todos,
@@ -41,7 +41,7 @@ router.get("/", async (req, res) => {
     // All-time expense count
     const totalExpensesResult = await pool.query(
       "SELECT COUNT(*) AS total_all FROM expenses WHERE user_id = $1;",
-      [req.auth.phoneNumber]
+      [req.auth.userId]
     );
     const totalExpensesCount = parseInt(
       totalExpensesResult.rows[0].total_all,

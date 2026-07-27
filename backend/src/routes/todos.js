@@ -12,7 +12,7 @@ router.get("/", async (req, res) => {
       ORDER BY created_at DESC;
     `;
 
-    const result = await pool.query(query, [req.auth.phoneNumber]);
+    const result = await pool.query(query, [req.auth.userId]);
     res.json(result.rows);
   } catch (err) {
     console.error("GET /api/todos error:", err);
@@ -56,7 +56,7 @@ router.post("/", async (req, res) => {
       RETURNING *;
     `;
 
-    const result = await pool.query(query, [code, req.auth.phoneNumber, text]);
+    const result = await pool.query(query, [code, req.auth.userId, text]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("POST /api/todos error:", err);
@@ -74,7 +74,7 @@ async function deleteTodo(req, res) {
 
     const result = await pool.query(
       "DELETE FROM todos WHERE code = $1 AND user_id = $2",
-      [code, req.auth.phoneNumber]
+      [code, req.auth.userId]
     );
     res.json({ deleted: (result.rowCount ?? 0) > 0 });
   } catch (err) {

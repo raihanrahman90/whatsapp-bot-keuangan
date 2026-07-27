@@ -3,14 +3,15 @@ const db = require('../config/database');
 async function createTodo(data) {
   const query = `
     INSERT INTO todos
-    (code, user_id, text, created_at)
-    VALUES ($1, $2, $3, $4)
+    (code, user_id, legacy_sender_id, text, created_at)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *;
   `;
 
   const result = await db.query(query, [
     data.code,
     data.userId,
+    data.legacySenderId || null,
     data.text,
     data.createdAt || new Date(),
   ]);

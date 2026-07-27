@@ -263,7 +263,7 @@ export default function Dashboard() {
   const filteredExpenses = expenses.filter(
     (e) =>
       e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.user_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(e.user_id).toLowerCase().includes(searchQuery.toLowerCase()) ||
       (e.category && e.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -271,7 +271,7 @@ export default function Dashboard() {
     (t) =>
       t.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.user_id.toLowerCase().includes(searchQuery.toLowerCase())
+      String(t.user_id).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (authState !== "authenticated") {

@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
 
     let query =
       "SELECT id, user_id, amount, category, description, created_at FROM expenses";
-    const params = [req.auth.phoneNumber];
+    const params = [req.auth.userId];
     const conditions = ["user_id = $1"];
 
     if (year) {
@@ -54,7 +54,7 @@ router.post("/", async (req, res) => {
     `;
 
     const result = await pool.query(query, [
-      req.auth.phoneNumber,
+      req.auth.userId,
       description,
       amount,
       category || null,

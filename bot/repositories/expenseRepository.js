@@ -3,8 +3,8 @@ const db = require('../config/database');
 async function createExpense(data) {
   const query = `
     INSERT INTO expenses
-    (amount, category, description, user_id, created_at)
-    VALUES ($1, $2, $3, $4, $5)
+    (amount, category, description, user_id, legacy_sender_id, created_at)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *;
   `;
 
@@ -13,6 +13,7 @@ async function createExpense(data) {
     data.category || null,
     data.description,
     data.userId,
+    data.legacySenderId || null,
     data.createdAt || new Date(),
   ]);
 
