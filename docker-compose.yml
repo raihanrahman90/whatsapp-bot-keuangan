@@ -42,8 +42,6 @@ services:
       OTP_MAX_REQUESTS_PER_WINDOW: 5
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       TRUST_PROXY: ${TRUST_PROXY:-false}
-    ports:
-      - "3001:3001"
     networks:
       - bot-network
     restart: unless-stopped
@@ -77,8 +75,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
