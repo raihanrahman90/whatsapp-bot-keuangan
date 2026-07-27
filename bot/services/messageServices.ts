@@ -14,7 +14,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     console.log(`[user:${userId}] ${text}`);
     const command = text.trim().toLowerCase();
     if (command === "help" || command === "menu") return showHelp(sock, sender);
-    const whatsappId = getWhatsAppId(sender, msg.key.remoteJidAlt);
+    const whatsappId = getWhatsAppId(sender);
     if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, whatsappId);
     if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, whatsappId);
     if (command === "todo") return showTodos(sock, sender, userId);
@@ -26,9 +26,8 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
   }
 }
 
-function getWhatsAppId(remoteJid: string, remoteJidAlt?: string | null): string {
-  const phoneJid = [remoteJid, remoteJidAlt].find((jid) => String(jid || "").endsWith("@s.whatsapp.net"));
-  return (phoneJid || remoteJid).split("@")[0];
+function getWhatsAppId(remoteJid: string): string {
+  return remoteJid.split("@")[0];
 }
 
 async function handleExpenseInput(sock: WASocket, sender: string, text: string, whatsappId: string): Promise<void> {
