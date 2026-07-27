@@ -66,5 +66,5 @@ export function buildExpenseMessage(title: string, expenses: ExpenseSummary[]): 
     return `${String(index + 1).padEnd(4)}${truncate(expense.item || "").padEnd(12)}${formatPrice(expense.price)}`;
   });
   const footer = `${"Total".padEnd(16)}${formatPrice(total)}`;
-  return `ðŸ“’ ${title}\n\n\`\`\`\n${header}\n${separator}\n${rows.join("\n")}\n${separator}\n${footer}\n\`\`\``;
+  return `✅ ${title}\n\n\`\`\`\n${header}\n${separator}\n${rows.join("\n")}\n${separator}\n${footer}\n\`\`\``;
 }
