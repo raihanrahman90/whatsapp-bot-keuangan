@@ -7,26 +7,6 @@ services:
         condition: service_healthy
     command: sh -c "npm run migrate && npm start"
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: finance_bot
-      DB_USER: postgres
-      DB_PASSWORD: password123
-      OTP_BRIDGE_PORT: 3000
-      OTP_BRIDGE_SECRET: ${OTP_BRIDGE_SECRET:?OTP_BRIDGE_SECRET must be set}
-    networks:
-      - bot-network
-    volumes:
-      - ./bot/data:/app/data
-      - ./bot/auth_info:/app/auth_info
-
-  backend:
-    build: ./backend
-    container_name: whatsapp-bot-backend
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
       PORT: 3001
       DB_HOST: postgres
       DB_PORT: 5432
@@ -34,8 +14,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password123
       CORS_ORIGIN: "http://localhost:8080"
-      OTP_BRIDGE_URL: http://whatsapp-bot:3000
-      OTP_BRIDGE_SECRET: ${OTP_BRIDGE_SECRET:?OTP_BRIDGE_SECRET must be set}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
       OTP_RESEND_COOLDOWN_SECONDS: 60
       OTP_RATE_LIMIT_WINDOW_SECONDS: 900
@@ -46,18 +24,21 @@ services:
       - "3001:3001"
     networks:
       - bot-network
+    volumes:
+      - ./bot/data:/app/data
+      - ./bot/auth_info:/app/auth_info
     restart: unless-stopped
 
   web-ui:
     build:
       context: ./web
       args:
-        BACKEND_URL: http://backend:3001
+        BACKEND_URL: http://whatsapp-bot:3001
     container_name: whatsapp-bot-web
     depends_on:
-      - backend
+      - whatsapp-bot
     environment:
-      BACKEND_URL: http://backend:3001
+      BACKEND_URL: http://whatsapp-bot:3001
     ports:
       - "8080:8080"
     networks:

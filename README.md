@@ -1,5 +1,7 @@
 # WhatsApp Bot Keuangan
 
+The WhatsApp bot and REST API run together as one Node.js service. The web UI remains a separate container.
+
 ## Start locally
 
 1. Copy `.env.example` to `.env` and replace both secret values with unique random strings.
@@ -11,5 +13,5 @@
 
 - Serve the dashboard over HTTPS and set `SESSION_COOKIE_SECURE=true`.
 - Set `CORS_ORIGIN` to the exact dashboard origin.
-- Set `TRUST_PROXY=1` only when one trusted proxy is directly in front of the backend.
-- Do not expose the bot's port 3000; the backend reaches it only through the Docker network.
+- Set `TRUST_PROXY=1` only when one trusted proxy is directly in front of the service.
+- The combined service exposes the API on port `3001`. WhatsApp authentication remains in `bot/auth_info/`.
