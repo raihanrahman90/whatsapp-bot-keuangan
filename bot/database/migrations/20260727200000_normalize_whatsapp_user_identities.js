@@ -9,7 +9,7 @@ exports.up = async function (knex) {
       .references("id")
       .inTable("users")
       .onDelete("CASCADE");
-    table.string("whatsapp_jid", 100).notNullable().unique();
+    table.string("whatsapp_id", 100).notNullable().unique();
     table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());
     table.timestamp("last_seen_at").notNullable().defaultTo(knex.fn.now());
     table.index("user_id");

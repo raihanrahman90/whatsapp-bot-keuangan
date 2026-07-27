@@ -7,16 +7,22 @@ function getPhoneNumberFromJids(remoteJid, remoteJidAlt) {
   return phoneJid ? phoneJid.split("@")[0] : null;
 }
 
+function getWhatsAppId(jid) {
+  return String(jid || "").split("@")[0];
+}
+
 async function resolveUserId({ remoteJid, remoteJidAlt }) {
   if (!remoteJid) throw new Error("Missing WhatsApp sender JID");
+
+  const whatsappId = getWhatsAppId(remoteJid);
 
   const client = await db.connect();
   try {
     await client.query("BEGIN");
     const phoneNumber = getPhoneNumberFromJids(remoteJid, remoteJidAlt);
     const knownIdentity = await client.query(
-      "SELECT user_id FROM whatsapp_identities WHERE whatsapp_jid = $1 FOR UPDATE",
-      [remoteJid]
+      "SELECT user_id FROM whatsapp_identities WHERE whatsapp_id = $1 FOR UPDATE",
+      [whatsappId]
     );
     if (knownIdentity.rowCount) {
       let userId = knownIdentity.rows[0].user_id;
@@ -49,8 +55,8 @@ async function resolveUserId({ remoteJid, remoteJidAlt }) {
         }
       }
       await client.query(
-        "UPDATE whatsapp_identities SET last_seen_at = NOW() WHERE whatsapp_jid = $1",
-        [remoteJid]
+        "UPDATE whatsapp_identities SET last_seen_at = NOW() WHERE whatsapp_id = $1",
+        [whatsappId]
       );
       await client.query("COMMIT");
       return userId;
@@ -79,8 +85,8 @@ async function resolveUserId({ remoteJid, remoteJidAlt }) {
     }
 
     await client.query(
-      "INSERT INTO whatsapp_identities (user_id, whatsapp_jid) VALUES ($1, $2)",
-      [userId, remoteJid]
+      "INSERT INTO whatsapp_identities (user_id, whatsapp_id) VALUES ($1, $2)",
+      [userId, whatsappId]
     );
     await client.query("COMMIT");
     return userId;
