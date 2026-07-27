@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const pool = require("../../config/database");
+const prisma = require("../../config/prisma");
 
 function parseCookies(cookieHeader) {
   return String(cookieHeader || "").split(";").reduce((cookies, item) => {
@@ -36,9 +36,12 @@ async function requireAuth(req, res, next) {
   if (!authenticatedUser) return res.status(401).json({ error: "Authentication required" });
 
   try {
-    const result = await pool.query("SELECT id FROM users WHERE phone_number = $1", [authenticatedUser.phoneNumber]);
-    if (!result.rowCount) return res.status(401).json({ error: "Authentication required" });
-    req.auth = { ...authenticatedUser, userId: result.rows[0].id };
+    const user = await prisma.user.findUnique({
+      where: { phoneNumber: authenticatedUser.phoneNumber },
+      select: { id: true }
+    });
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+    req.auth = { ...authenticatedUser, userId: user.id };
     return next();
   } catch (error) {
     return next(error);

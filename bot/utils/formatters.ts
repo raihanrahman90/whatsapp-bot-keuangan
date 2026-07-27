@@ -1,4 +1,4 @@
-function truncate(text, length = 10) {
+export function truncate(text: string, length = 10): string {
   if (text.length <= length) {
     return text.padEnd(length);
   }
@@ -6,11 +6,6 @@ function truncate(text, length = 10) {
   return text.substring(0, length - 2) + "..";
 }
 
-function formatPrice(price) {
+export function formatPrice(price: number): string {
   return price.toLocaleString("id-ID").padStart(12);
-}
-
-
-module.exports = {
-    truncate, formatPrice
 }

@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const pool = require("../../config/database");
+const prisma = require("../../config/prisma");
 const { deliverOtp } = require("../../services/whatsappService");
 
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -34,52 +34,39 @@ function createOtp() {
 }
 
 async function reserveOtpRequest(phoneNumber, ipAddress) {
-  const client = await pool.connect();
   const now = new Date();
   const windowStart = new Date(now.getTime() - OTP_RATE_LIMIT_WINDOW_MS);
-  let transactionOpen = false;
+  const rateLimit = await prisma.$transaction(async (tx) => {
+    await tx.user.upsert({ where: { phoneNumber }, update: {}, create: { phoneNumber } });
+    await tx.otpRequestAttempt.deleteMany({ where: { createdAt: { lt: windowStart } } });
 
-  try {
-    await client.query("BEGIN");
-    transactionOpen = true;
-    await client.query("INSERT INTO users (phone_number) VALUES ($1) ON CONFLICT (phone_number) DO NOTHING", [phoneNumber]);
-    await client.query("SELECT id FROM users WHERE phone_number = $1 FOR UPDATE", [phoneNumber]);
-    await client.query("DELETE FROM otp_request_attempts WHERE created_at < $1", [windowStart]);
-
-    const latestRequest = await client.query(
-      "SELECT created_at FROM otp_request_attempts WHERE phone_number = $1 ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
-      [phoneNumber]
-    );
-    const lastRequestedAt = latestRequest.rows[0]?.created_at;
-    if (lastRequestedAt && now.getTime() - new Date(lastRequestedAt).getTime() < OTP_RESEND_COOLDOWN_MS) {
-      const retryAfterSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - (now.getTime() - new Date(lastRequestedAt).getTime())) / 1000);
-      await client.query("COMMIT");
-      transactionOpen = false;
-      throw new OtpRateLimitError("Please wait before requesting another OTP", retryAfterSeconds);
+    const latestRequest = await tx.otpRequestAttempt.findFirst({
+      where: { phoneNumber },
+      orderBy: { createdAt: "desc" }
+    });
+    if (latestRequest && now.getTime() - latestRequest.createdAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
+      return {
+        message: "Please wait before requesting another OTP",
+        retryAfterSeconds: Math.ceil((OTP_RESEND_COOLDOWN_MS - (now.getTime() - latestRequest.createdAt.getTime())) / 1000)
+      };
     }
 
-    const limits = await client.query(
-      `SELECT COUNT(*) FILTER (WHERE phone_number = $1) AS phone_count,
-              COUNT(*) FILTER (WHERE ip_address = $2) AS ip_count
-       FROM otp_request_attempts WHERE created_at >= $3`,
-      [phoneNumber, ipAddress || null, windowStart]
-    );
-    const { phone_count: phoneCount, ip_count: ipCount } = limits.rows[0];
-    if (Number(phoneCount) >= OTP_MAX_REQUESTS_PER_WINDOW || (ipAddress && Number(ipCount) >= OTP_MAX_REQUESTS_PER_WINDOW)) {
-      await client.query("COMMIT");
-      transactionOpen = false;
-      throw new OtpRateLimitError("Too many OTP requests. Please try again later", Math.ceil(OTP_RATE_LIMIT_WINDOW_MS / 1000));
+    const [phoneCount, ipCount] = await Promise.all([
+      tx.otpRequestAttempt.count({ where: { phoneNumber, createdAt: { gte: windowStart } } }),
+      ipAddress ? tx.otpRequestAttempt.count({ where: { ipAddress, createdAt: { gte: windowStart } } }) : Promise.resolve(0)
+    ]);
+    if (phoneCount >= OTP_MAX_REQUESTS_PER_WINDOW || (ipAddress && ipCount >= OTP_MAX_REQUESTS_PER_WINDOW)) {
+      return {
+        message: "Too many OTP requests. Please try again later",
+        retryAfterSeconds: Math.ceil(OTP_RATE_LIMIT_WINDOW_MS / 1000)
+      };
     }
 
-    await client.query("INSERT INTO otp_request_attempts (phone_number, ip_address) VALUES ($1, $2)", [phoneNumber, ipAddress || null]);
-    await client.query("COMMIT");
-    transactionOpen = false;
-  } catch (error) {
-    if (transactionOpen) await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+    await tx.otpRequestAttempt.create({ data: { phoneNumber, ipAddress: ipAddress || null } });
+    return null;
+  }, { isolationLevel: "Serializable" });
+
+  if (rateLimit) throw new OtpRateLimitError(rateLimit.message, rateLimit.retryAfterSeconds);
 }
 
 async function requestOtp(phoneNumber, ipAddress) {
@@ -88,58 +75,44 @@ async function requestOtp(phoneNumber, ipAddress) {
   await reserveOtpRequest(normalizedPhoneNumber, ipAddress);
   await deliverOtp(normalizedPhoneNumber, code, OTP_TTL_MS / 60_000);
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query("INSERT INTO users (phone_number) VALUES ($1) ON CONFLICT (phone_number) DO NOTHING", [normalizedPhoneNumber]);
-    await client.query("DELETE FROM otp_challenges WHERE phone_number = $1", [normalizedPhoneNumber]);
-    await client.query("INSERT INTO otp_challenges (phone_number, code_hash, expires_at, attempts) VALUES ($1, $2, $3, 0)", [normalizedPhoneNumber, hashOtp(code), new Date(Date.now() + OTP_TTL_MS)]);
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  await prisma.$transaction(async (tx) => {
+    await tx.user.upsert({ where: { phoneNumber: normalizedPhoneNumber }, update: {}, create: { phoneNumber: normalizedPhoneNumber } });
+    await tx.otpChallenge.deleteMany({ where: { phoneNumber: normalizedPhoneNumber } });
+    await tx.otpChallenge.create({
+      data: {
+        phoneNumber: normalizedPhoneNumber,
+        codeHash: hashOtp(code),
+        expiresAt: new Date(Date.now() + OTP_TTL_MS)
+      }
+    });
+  }, { isolationLevel: "Serializable" });
+
   return { phoneNumber: normalizedPhoneNumber };
 }
 
 async function verifyOtp(phoneNumber, code) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const client = await pool.connect();
-  let transactionOpen = false;
-  try {
-    await client.query("BEGIN");
-    transactionOpen = true;
-    const result = await client.query("SELECT code_hash, expires_at, attempts FROM otp_challenges WHERE phone_number = $1 FOR UPDATE", [normalizedPhoneNumber]);
-    const challenge = result.rows[0];
-    if (!challenge || new Date(challenge.expires_at) <= new Date() || challenge.attempts >= MAX_VERIFY_ATTEMPTS) {
-      if (challenge) await client.query("DELETE FROM otp_challenges WHERE phone_number = $1", [normalizedPhoneNumber]);
-      await client.query("COMMIT");
-      transactionOpen = false;
-      throw new Error("Invalid or expired OTP");
+  const result = await prisma.$transaction(async (tx) => {
+    const challenge = await tx.otpChallenge.findUnique({ where: { phoneNumber: normalizedPhoneNumber } });
+    if (!challenge || challenge.expiresAt <= new Date() || challenge.attempts >= MAX_VERIFY_ATTEMPTS) {
+      if (challenge) await tx.otpChallenge.delete({ where: { phoneNumber: normalizedPhoneNumber } });
+      return null;
     }
 
     const submittedHash = hashOtp(String(code || ""));
-    const isMatch = crypto.timingSafeEqual(Buffer.from(challenge.code_hash, "hex"), Buffer.from(submittedHash, "hex"));
+    const isMatch = crypto.timingSafeEqual(Buffer.from(challenge.codeHash, "hex"), Buffer.from(submittedHash, "hex"));
     if (!isMatch) {
-      await client.query("UPDATE otp_challenges SET attempts = attempts + 1 WHERE phone_number = $1", [normalizedPhoneNumber]);
-      await client.query("COMMIT");
-      transactionOpen = false;
-      throw new Error("Invalid or expired OTP");
+      await tx.otpChallenge.update({ where: { phoneNumber: normalizedPhoneNumber }, data: { attempts: { increment: 1 } } });
+      return null;
     }
 
-    await client.query("DELETE FROM otp_challenges WHERE phone_number = $1", [normalizedPhoneNumber]);
-    await client.query("UPDATE users SET last_authenticated_at = NOW() WHERE phone_number = $1", [normalizedPhoneNumber]);
-    await client.query("COMMIT");
-    transactionOpen = false;
+    await tx.otpChallenge.delete({ where: { phoneNumber: normalizedPhoneNumber } });
+    await tx.user.update({ where: { phoneNumber: normalizedPhoneNumber }, data: { lastAuthenticatedAt: new Date() } });
     return { phoneNumber: normalizedPhoneNumber };
-  } catch (error) {
-    if (transactionOpen) await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  }, { isolationLevel: "Serializable" });
+
+  if (!result) throw new Error("Invalid or expired OTP");
+  return result;
 }
 
 function createSessionToken(phoneNumber) {

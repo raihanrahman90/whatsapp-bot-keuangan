@@ -18,9 +18,9 @@ function mapRowToTodo(row) {
   if (!row) return null;
   return {
     code: row.code,
-    userId: row.user_id,
+    userId: row.userId,
     text: row.text,
-    createdAt: row.created_at
+    createdAt: row.createdAt
   };
 }
 

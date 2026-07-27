@@ -4,7 +4,7 @@ The WhatsApp bot and REST API run together as one Node.js service. The web UI re
 
 The bot uses an incremental TypeScript setup: it compiles the current JavaScript modules into `bot/dist/`, while new modules can be added as fully typed `.ts` files.
 
-Prisma models live in `bot/prisma/schema.prisma` and map the existing PostgreSQL schema. Knex remains responsible for applying the existing migrations; do not run Prisma migrations until the migration history has been deliberately baselined.
+Prisma models live in `bot/prisma/schema.prisma` and all application database access uses the generated Prisma client. Knex remains responsible for applying the existing migrations; do not run Prisma migrations until the migration history has been deliberately baselined.
 
 ## Start locally
 

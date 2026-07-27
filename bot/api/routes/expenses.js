@@ -1,23 +1,30 @@
 const express = require("express");
-const pool = require("../../config/database");
+const prisma = require("../../config/prisma");
+const { expenseToApi } = require("../serializers");
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
     const { month, year } = req.query;
-    const params = [req.auth.userId];
-    const conditions = ["user_id = $1"];
-    if (year) { params.push(year); conditions.push(`EXTRACT(YEAR FROM created_at) = $${params.length}`); }
-    if (month) { params.push(month); conditions.push(`EXTRACT(MONTH FROM created_at) = $${params.length}`); }
-    const result = await pool.query(`SELECT id, user_id, amount, category, description, created_at FROM expenses WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT 100`, params);
+    const expenses = await prisma.expense.findMany({
+      where: { userId: req.auth.userId },
+      orderBy: { createdAt: "desc" }
+    });
+    const filtered = expenses
+      .filter((expense) => {
+        if (!expense.createdAt) return !year && !month;
+        return (!year || expense.createdAt.getFullYear() === Number(year)) &&
+          (!month || expense.createdAt.getMonth() + 1 === Number(month));
+      })
+      .slice(0, 100);
     console.log("GET /api/expenses", {
       phoneNumber: req.auth.phoneNumber,
-      userId: req.auth.userId,
+      userId: req.auth.userId.toString(),
       year: year || null,
       month: month || null,
-      resultCount: result.rowCount
+      resultCount: filtered.length
     });
-    return res.json(result.rows);
+    return res.json(filtered.map(expenseToApi));
   } catch (error) {
     console.error("GET /api/expenses error:", error);
     return res.status(500).json({ error: error.message || "Failed to fetch expenses" });
@@ -28,8 +35,10 @@ router.post("/", async (req, res) => {
   try {
     const { description, amount, category } = req.body || {};
     if (!description || amount === undefined) return res.status(400).json({ error: "Missing required fields: description, amount" });
-    const result = await pool.query("INSERT INTO expenses (user_id, description, amount, category, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *", [req.auth.userId, description, amount, category || null]);
-    return res.status(201).json(result.rows[0]);
+    const expense = await prisma.expense.create({
+      data: { userId: req.auth.userId, description, amount, category: category || null, createdAt: new Date() }
+    });
+    return res.status(201).json(expenseToApi(expense));
   } catch (error) {
     console.error("POST /api/expenses error:", error);
     return res.status(500).json({ error: error.message || "Failed to create expense" });

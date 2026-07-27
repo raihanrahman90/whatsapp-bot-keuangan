@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { truncate, formatPrice } = require("./helper");
+const { truncate, formatPrice } = require("../utils/formatters");
 const expenseRepository = require("../repositories/expenseRepository");
 
 function getFilePath(filename) {
@@ -19,10 +19,10 @@ function mapRowToExpense(row) {
   if (!row) return null;
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.userId,
     item: row.description,
     price: parseFloat(row.amount),
-    createdAt: row.created_at
+    createdAt: row.createdAt
   };
 }
 
