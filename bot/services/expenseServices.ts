@@ -69,31 +69,3 @@ export function buildExpenseMessage(title: string, expenses: ExpenseSummary[]): 
   const footer = `${"Total".padEnd(16)}${formatPrice(total)}`;
   return `ðŸ“’ ${title}\n\n\`\`\`\n${header}\n${separator}\n${rows.join("\n")}\n${separator}\n${footer}\n\`\`\``;
 }
-
-export async function migrateJsonToDb(): Promise<void> {
-  const targetFile = getFilePath("expenses.json");
-  if (!fs.existsSync(targetFile)) {
-    console.log("expenses.json not found, skipping migration");
-    return;
-  }
-
-  try {
-    const expenses = JSON.parse(fs.readFileSync(targetFile, "utf8")) as LegacyExpense[];
-    if (Array.isArray(expenses) && expenses.length > 0) {
-      console.log(`[Migration] Found ${expenses.length} expenses in ${path.basename(targetFile)}. Migrating to database...`);
-      for (const expense of expenses) {
-        if (expense.userId == null || !expense.item || expense.price == null) continue;
-        await createExpense({
-          userId: expense.userId,
-          description: expense.item,
-          amount: expense.price,
-          createdAt: expense.createdAt ? new Date(expense.createdAt) : new Date()
-        });
-      }
-      console.log(`[Migration] Successfully migrated ${expenses.length} expenses to database.`);
-    }
-    fs.renameSync(targetFile, `${targetFile}.bak`);
-  } catch (error) {
-    console.error("[Migration] Failed to migrate expenses.json:", error);
-  }
-}
