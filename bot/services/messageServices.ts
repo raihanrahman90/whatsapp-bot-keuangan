@@ -14,32 +14,38 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     console.log(`[user:${userId}] ${text}`);
     const command = text.trim().toLowerCase();
     if (command === "help" || command === "menu") return showHelp(sock, sender);
-    if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, userId);
-    if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, userId);
+    const whatsappId = getWhatsAppId(sender, msg.key.remoteJidAlt);
+    if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, whatsappId);
+    if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, whatsappId);
     if (command === "todo") return showTodos(sock, sender, userId);
     if (text.toLowerCase().startsWith("todo:")) return handleTodoInput(sock, sender, userId, text);
     if (text.toLowerCase().startsWith("todo remove:")) return handleRemoveTodo(sock, sender, userId, text);
-    return handleExpenseInput(sock, sender, userId, text);
+    return handleExpenseInput(sock, sender, text, whatsappId);
   } catch (error) {
     console.error("Terjadi kesalahan:", error);
   }
 }
 
-async function handleExpenseInput(sock: WASocket, sender: string, userId: bigint, text: string): Promise<void> {
+function getWhatsAppId(remoteJid: string, remoteJidAlt?: string | null): string {
+  const phoneJid = [remoteJid, remoteJidAlt].find((jid) => String(jid || "").endsWith("@s.whatsapp.net"));
+  return (phoneJid || remoteJid).split("@")[0];
+}
+
+async function handleExpenseInput(sock: WASocket, sender: string, text: string, whatsappId: string): Promise<void> {
   const match = text.match(/Beli:\s*(.+)\nHarga:\s*([\d.,]+)/i);
   if (!match) return showHelp(sock, sender);
   const item = match[1].trim();
   const price = Number.parseInt(match[2].replace(/[^\d]/g, ""), 10);
-  await saveExpense(userId, item, price, sender.split("@")[0]);
+  await saveExpense(whatsappId, item, price);
   await sock.sendMessage(sender, { text: `âœ… Pengeluaran dicatat\nBarang: ${item}\nHarga: Rp${price.toLocaleString("id-ID")}` });
 }
 
-async function showExpensesThisMonth(sock: WASocket, sender: string, userId: bigint): Promise<void> {
-  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Ini", await getExpensesThisMonth(userId)) });
+async function showExpensesThisMonth(sock: WASocket, sender: string, whatsappId: string): Promise<void> {
+  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Ini", await getExpensesThisMonth(whatsappId)) });
 }
 
-async function showExpensesLastMonth(sock: WASocket, sender: string, userId: bigint): Promise<void> {
-  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Lalu", await getExpensesLastMonth(userId)) });
+async function showExpensesLastMonth(sock: WASocket, sender: string, whatsappId: string): Promise<void> {
+  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Lalu", await getExpensesLastMonth(whatsappId)) });
 }
 
 async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, text: string): Promise<void> {

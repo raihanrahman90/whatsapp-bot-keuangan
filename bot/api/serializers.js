@@ -11,7 +11,7 @@ function toJsonValue(value) {
 function expenseToApi(expense) {
   return toJsonValue({
     id: expense.id,
-    user_id: expense.userId,
+    whatsapp_id: expense.whatsappId,
     amount: expense.amount,
     category: expense.category,
     description: expense.description,

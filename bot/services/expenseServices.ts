@@ -5,14 +5,13 @@ import { formatPrice, truncate } from "../utils/formatters";
 
 export interface ExpenseSummary {
   id: bigint;
-  userId: bigint | null;
+  whatsappId: string;
   item: string | null;
   price: number;
   createdAt: Date | null;
 }
 
 interface LegacyExpense {
-  userId?: bigint | number | string;
   item?: string;
   price?: number | string;
   createdAt?: string;
@@ -29,30 +28,30 @@ function getFilePath(filename: string): string {
 function mapRowToExpense(row: Awaited<ReturnType<typeof createExpense>>): ExpenseSummary {
   return {
     id: row.id,
-    userId: row.userId,
+    whatsappId: row.whatsappId,
     item: row.description,
     price: Number(row.amount),
     createdAt: row.createdAt
   };
 }
 
-export async function saveExpense(userId: bigint, item: string, price: number, whatsappId = ""): Promise<void> {
-  if (!userId || !item || !price) return;
+export async function saveExpense(whatsappId: string, item: string, price: number): Promise<void> {
+  if (!whatsappId || !item || !price) return;
   if (Number.isNaN(price)) throw new Error("Price must be number");
 
-  await createExpense({ userId, whatsappId, description: item, amount: price, createdAt: new Date() });
+  await createExpense({ whatsappId, description: item, amount: price, createdAt: new Date() });
 }
 
-export async function getExpensesThisMonth(userId: bigint): Promise<ExpenseSummary[]> {
+export async function getExpensesThisMonth(whatsappId: string): Promise<ExpenseSummary[]> {
   const now = new Date();
-  const rows = await getExpensesForMonth(userId, now.getFullYear(), now.getMonth() + 1);
+  const rows = await getExpensesForMonth(whatsappId, now.getFullYear(), now.getMonth() + 1);
   return rows.map(mapRowToExpense);
 }
 
-export async function getExpensesLastMonth(userId: bigint): Promise<ExpenseSummary[]> {
+export async function getExpensesLastMonth(whatsappId: string): Promise<ExpenseSummary[]> {
   const now = new Date();
   const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const rows = await getExpensesForMonth(userId, lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1);
+  const rows = await getExpensesForMonth(whatsappId, lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1);
   return rows.map(mapRowToExpense);
 }
 

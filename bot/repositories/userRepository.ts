@@ -5,6 +5,14 @@ interface ResolveUserInput {
   remoteJidAlt?: string | null;
 }
 
+export async function getWhatsAppIdsForUser(userId: bigint, phoneNumber: string): Promise<string[]> {
+  const identities = await prisma.whatsAppIdentity.findMany({
+    where: { userId },
+    select: { whatsappId: true }
+  });
+  return [...new Set([phoneNumber, ...identities.map((identity) => identity.whatsappId)])];
+}
+
 function getPhoneNumberFromJids(remoteJid: string, remoteJidAlt?: string | null): string | null {
   const phoneJid = [remoteJid, remoteJidAlt].find((jid) =>
     String(jid || "").endsWith("@s.whatsapp.net")
@@ -32,7 +40,6 @@ export async function resolveUserId({ remoteJid, remoteJidAlt }: ResolveUserInpu
         const phoneUser = await tx.user.findUnique({ where: { phoneNumber } });
         if (phoneUser && phoneUser.id !== userId) {
           await tx.whatsAppIdentity.updateMany({ where: { userId }, data: { userId: phoneUser.id } });
-          await tx.expense.updateMany({ where: { userId }, data: { userId: phoneUser.id } });
           await tx.todo.updateMany({ where: { userId }, data: { userId: phoneUser.id } });
           await tx.user.delete({ where: { id: userId } });
           userId = phoneUser.id;

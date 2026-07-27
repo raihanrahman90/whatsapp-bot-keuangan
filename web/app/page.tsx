@@ -22,7 +22,7 @@ import {
 
 interface Expense {
   id: number;
-  user_id: string;
+  whatsapp_id: string;
   amount: number | string;
   category: string | null;
   description: string;
@@ -263,7 +263,7 @@ export default function Dashboard() {
   const filteredExpenses = expenses.filter(
     (e) =>
       e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(e.user_id).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(e.whatsapp_id).toLowerCase().includes(searchQuery.toLowerCase()) ||
       (e.category && e.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -528,7 +528,7 @@ export default function Dashboard() {
                       <th className="px-6 py-4">No</th>
                       <th className="px-6 py-4">Deskripsi / Barang</th>
                       <th className="px-6 py-4">Kategori</th>
-                      <th className="px-6 py-4">User ID</th>
+                      <th className="px-6 py-4">WhatsApp ID</th>
                       <th className="px-6 py-4">Tanggal</th>
                       <th className="px-6 py-4 text-right">Jumlah</th>
                     </tr>
@@ -547,7 +547,7 @@ export default function Dashboard() {
                         <td className="px-6 py-4 font-mono text-xs text-slate-400">
                           <div className="flex items-center space-x-1.5">
                             <User className="h-3.5 w-3.5 text-slate-500" />
-                            <span>{expense.user_id}</span>
+                            <span>{expense.whatsapp_id}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-400">{formatDate(expense.created_at)}</td>

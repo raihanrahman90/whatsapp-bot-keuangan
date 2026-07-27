@@ -1,6 +1,7 @@
 import express = require("express");
 import prisma = require("../../config/prisma");
 import { getErrorMessage, type AuthenticatedRequest } from "../types";
+import { getWhatsAppIdsForUser } from "../../repositories/userRepository";
 
 const router = express.Router();
 
@@ -12,14 +13,15 @@ router.get("/", async (req, res) => {
     const month = now.getMonth() + 1;
     const monthStart = new Date(year, month - 1, 1);
     const nextMonthStart = new Date(year, month, 1);
+    const whatsappIds = await getWhatsAppIdsForUser(auth.userId, auth.phoneNumber);
     const [expenseStats, activeTodosCount, totalExpensesCount] = await Promise.all([
       prisma.expense.aggregate({
-        where: { userId: auth.userId, createdAt: { gte: monthStart, lt: nextMonthStart } },
+        where: { whatsappId: { in: whatsappIds }, createdAt: { gte: monthStart, lt: nextMonthStart } },
         _sum: { amount: true },
         _count: { _all: true }
       }),
       prisma.todo.count({ where: { userId: auth.userId } }),
-      prisma.expense.count({ where: { userId: auth.userId } })
+      prisma.expense.count({ where: { whatsappId: { in: whatsappIds } } })
     ]);
     return res.json({
       currentMonthSpent: Number(expenseStats._sum.amount || 0),

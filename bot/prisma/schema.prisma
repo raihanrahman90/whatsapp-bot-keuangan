@@ -13,7 +13,6 @@ model User {
   phoneNumber         String?            @unique @map("phone_number") @db.VarChar(15)
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
   lastAuthenticatedAt DateTime?          @map("last_authenticated_at") @db.Timestamp(6)
-  expenses            Expense[]
   todos               Todo[]
   whatsappIdentities  WhatsAppIdentity[]
   otpChallenge        OtpChallenge?
@@ -27,11 +26,9 @@ model Expense {
   category       String?   @db.VarChar(100)
   description    String?
   whatsappId String    @default("") @map("whatsapp_id") @db.VarChar(100)
-  userId     BigInt?   @map("user_id")
   createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
-  user       User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  @@index([userId])
+  @@index([whatsappId])
   @@map("expenses")
 }
 
