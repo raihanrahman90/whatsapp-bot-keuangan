@@ -70,4 +70,29 @@ router.post("/", async (req, res) => {
   }
 });
 
+async function deleteExpense(req: AuthenticatedRequest, res: express.Response) {
+  try {
+    const rawId = String(req.params.id || req.query.id || "");
+    if (!/^\d+$/.test(rawId)) return res.status(400).json({ error: "Expense id must be a positive integer" });
+
+    const id = BigInt(rawId);
+    if (id <= 0n || id > 9_223_372_036_854_775_807n) {
+      return res.status(400).json({ error: "Expense id must be a positive integer" });
+    }
+
+    const whatsappIds = await getWhatsAppIdsForUser(req.auth.userId, req.auth.phoneNumber);
+    const result = await prisma.expense.deleteMany({
+      where: { id, whatsappId: { in: whatsappIds } }
+    });
+    return res.json({ deleted: result.count > 0 });
+  } catch (error) {
+    const message = getErrorMessage(error, "Failed to delete expense");
+    console.error("DELETE /api/expenses error:", error);
+    return res.status(500).json({ error: message });
+  }
+}
+
+router.delete("/", (req, res) => deleteExpense(req as unknown as AuthenticatedRequest, res));
+router.delete("/:id", (req, res) => deleteExpense(req as unknown as AuthenticatedRequest, res));
+
 export = router;

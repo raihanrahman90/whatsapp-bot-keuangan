@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Smartphone,
   LogOut,
+  Download,
 } from "lucide-react";
 
 interface Expense {
@@ -271,6 +272,28 @@ export default function Dashboard() {
     }
   };
 
+  const downloadExpenses = () => {
+    const escapeCsv = (value: string | number | null | undefined) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const rows = [
+      ["ID", "WhatsApp ID", "Deskripsi", "Kategori", "Jumlah", "Tanggal"],
+      ...filteredExpenses.map((expense) => [
+        expense.id,
+        expense.whatsapp_id,
+        expense.description,
+        expense.category,
+        expense.amount,
+        expense.created_at,
+      ]),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(",")).join("\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pengeluaran-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredExpenses = expenses.filter(
     (e) =>
       (selectedExpenseCategory === "" || e.category === selectedExpenseCategory) &&
@@ -394,6 +417,17 @@ export default function Dashboard() {
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Keluar</span>
             </button>
+            {activeTab === "expenses" && (
+              <button
+                onClick={downloadExpenses}
+                disabled={filteredExpenses.length === 0}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center space-x-2 text-sm border border-slate-700/50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Unduh pengeluaran sebagai CSV"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Unduh</span>
+              </button>
+            )}
             <button
               onClick={() => (activeTab === "expenses" ? setIsExpenseModalOpen(true) : setIsTodoModalOpen(true))}
               className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition flex items-center space-x-2 shadow-lg shadow-indigo-600/30"
