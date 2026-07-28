@@ -5,7 +5,7 @@ type UserId = bigint | number | string;
 interface CreateTodoInput {
   code: string;
   userId?: UserId | null;
-  legacySenderId?: string | null;
+  whatsappId?: string | null;
   text: string;
   createdAt?: Date;
 }
@@ -19,7 +19,7 @@ export async function createTodo(data: CreateTodoInput) {
     data: {
       code: data.code,
       userId: data.userId == null ? null : toUserId(data.userId),
-      legacySenderId: data.legacySenderId || "",
+      whatsappId: data.whatsappId || "",
       text: data.text,
       createdAt: data.createdAt || new Date()
     }

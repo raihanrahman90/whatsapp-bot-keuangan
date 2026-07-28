@@ -18,7 +18,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, whatsappId);
     if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, whatsappId);
     if (command === "todo") return showTodos(sock, sender, userId);
-    if (text.toLowerCase().startsWith("todo:")) return handleTodoInput(sock, sender, userId, text);
+    if (text.toLowerCase().startsWith("todo:")) return handleTodoInput(sock, sender, userId, text, whatsappId);
     if (text.toLowerCase().startsWith("todo remove:")) return handleRemoveTodo(sock, sender, userId, text);
     return handleExpenseInput(sock, sender, text, whatsappId);
   } catch (error) {
@@ -47,13 +47,13 @@ async function showExpensesLastMonth(sock: WASocket, sender: string, whatsappId:
   await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Lalu", await getExpensesLastMonth(whatsappId)) });
 }
 
-async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, text: string): Promise<void> {
+async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, text: string, whatsappId: string): Promise<void> {
   const todoText = text.substring(5).trim();
   if (!todoText) {
     await sock.sendMessage(sender, { text: "Format:\nTodo: Belajar NodeJS" });
     return;
   }
-  const todo = await saveTodo(userId, todoText);
+  const todo = await saveTodo(userId, todoText, whatsappId);
   await sock.sendMessage(sender, { text: `📝 Todo berhasil ditambahkan\n\nKode : ${todo.code}\nTodo : ${todo.text}` });
 }
 

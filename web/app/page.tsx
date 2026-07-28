@@ -31,7 +31,7 @@ interface Expense {
 
 interface Todo {
   code: string;
-  user_id: string;
+  whatsapp_id: string;
   text: string;
   created_at: string;
 }
@@ -283,7 +283,7 @@ export default function Dashboard() {
     (t) =>
       t.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(t.user_id).toLowerCase().includes(searchQuery.toLowerCase())
+      String(t.whatsapp_id).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (authState !== "authenticated") {
@@ -621,7 +621,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                      <span className="font-mono">{todo.user_id}</span>
+                      <span className="font-mono">{todo.whatsapp_id}</span>
                       <span>{formatDate(todo.created_at)}</span>
                     </div>
                   </div>

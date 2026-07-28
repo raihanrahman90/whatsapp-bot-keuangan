@@ -1,23 +1,25 @@
-const crypto = require("crypto");
-const prisma = require("../../config/prisma");
-const { deliverOtp } = require("../../services/whatsappService");
+import crypto = require("node:crypto");
+import prisma = require("../../config/prisma");
+import { deliverOtp } from "../../services/whatsappService";
 
-const OTP_TTL_MS = 5 * 60 * 1000;
+export const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_LENGTH = 6;
 const MAX_VERIFY_ATTEMPTS = 5;
 const OTP_RESEND_COOLDOWN_MS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60) * 1000;
 const OTP_RATE_LIMIT_WINDOW_MS = Number(process.env.OTP_RATE_LIMIT_WINDOW_SECONDS || 15 * 60) * 1000;
 const OTP_MAX_REQUESTS_PER_WINDOW = Number(process.env.OTP_MAX_REQUESTS_PER_WINDOW || 5);
 
-class OtpRateLimitError extends Error {
-  constructor(message, retryAfterSeconds) {
+export class OtpRateLimitError extends Error {
+  retryAfterSeconds: number;
+
+  constructor(message: string, retryAfterSeconds: number) {
     super(message);
     this.name = "OtpRateLimitError";
     this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
-function normalizePhoneNumber(phoneNumber) {
+function normalizePhoneNumber(phoneNumber: unknown): string {
   const normalized = String(phoneNumber || "").replace(/[^\d]/g, "");
   if (!/^\d{8,15}$/.test(normalized)) {
     throw new Error("phoneNumber must be an E.164 number without the leading +");
@@ -25,15 +27,15 @@ function normalizePhoneNumber(phoneNumber) {
   return normalized;
 }
 
-function hashOtp(code) {
+function hashOtp(code: string): string {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
-function createOtp() {
+function createOtp(): string {
   return String(crypto.randomInt(10 ** (OTP_LENGTH - 1), 10 ** OTP_LENGTH));
 }
 
-async function reserveOtpRequest(phoneNumber, ipAddress) {
+async function reserveOtpRequest(phoneNumber: string, ipAddress?: string): Promise<void> {
   const now = new Date();
   const windowStart = new Date(now.getTime() - OTP_RATE_LIMIT_WINDOW_MS);
   const rateLimit = await prisma.$transaction(async (tx) => {
@@ -69,7 +71,7 @@ async function reserveOtpRequest(phoneNumber, ipAddress) {
   if (rateLimit) throw new OtpRateLimitError(rateLimit.message, rateLimit.retryAfterSeconds);
 }
 
-async function requestOtp(phoneNumber, ipAddress) {
+export async function requestOtp(phoneNumber: unknown, ipAddress?: string): Promise<{ phoneNumber: string }> {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
   const code = createOtp();
   await reserveOtpRequest(normalizedPhoneNumber, ipAddress);
@@ -90,7 +92,7 @@ async function requestOtp(phoneNumber, ipAddress) {
   return { phoneNumber: normalizedPhoneNumber };
 }
 
-async function verifyOtp(phoneNumber, code) {
+export async function verifyOtp(phoneNumber: unknown, code: unknown): Promise<{ phoneNumber: string }> {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
   const result = await prisma.$transaction(async (tx) => {
     const challenge = await tx.otpChallenge.findUnique({ where: { phoneNumber: normalizedPhoneNumber } });
@@ -115,12 +117,10 @@ async function verifyOtp(phoneNumber, code) {
   return result;
 }
 
-function createSessionToken(phoneNumber) {
+export function createSessionToken(phoneNumber: string): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET must be configured");
   const payload = Buffer.from(JSON.stringify({ sub: phoneNumber, exp: Date.now() + 24 * 60 * 60 * 1000 })).toString("base64url");
   const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   return `${payload}.${signature}`;
 }
-
-module.exports = { OTP_TTL_MS, OtpRateLimitError, requestOtp, verifyOtp, createSessionToken };

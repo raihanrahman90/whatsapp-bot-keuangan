@@ -35,7 +35,7 @@ model Expense {
 model Todo {
   id             BigInt    @id @default(autoincrement())
   code           String    @unique @db.VarChar(10)
-  legacySenderId String    @map("legacy_sender_id") @db.VarChar(100)
+  whatsappId     String    @default("") @map("whatsapp_id") @db.VarChar(100)
   userId         BigInt?   @map("user_id")
   text           String
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamp(6)

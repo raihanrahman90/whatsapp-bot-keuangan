@@ -44,7 +44,7 @@ router.get("/", async (req, res) => {
           (!month || expense.createdAt.getMonth() + 1 === Number(month));
       })
       .slice(0, 100);
-    console.log("GET /api/expenses", { whatsappId: auth.phoneNumber, year: year || null, month: month || null, category: category || null, resultCount: filtered.length });
+    console.log("GET /api/expenses", { whatsappId: auth.whatsappId || auth.phoneNumber, year: year || null, month: month || null, category: category || null, resultCount: filtered.length });
     return res.json(filtered.map(serializers.expenseToApi));
   } catch (error) {
     const message = getErrorMessage(error, "Failed to fetch expenses");
@@ -58,8 +58,9 @@ router.post("/", async (req, res) => {
     const auth = (req as AuthenticatedRequest).auth;
     const { description, amount, category } = (req.body || {}) as { description?: string; amount?: number | string; category?: string };
     if (!description || amount === undefined) return res.status(400).json({ error: "Missing required fields: description, amount" });
+    if (!auth.whatsappId) return res.status(409).json({ error: "WhatsApp identity not found for this account" });
     const expense = await prisma.expense.create({
-      data: { whatsappId: auth.phoneNumber, description, amount, category: category || null, createdAt: new Date() }
+      data: { whatsappId: auth.whatsappId, description, amount, category: category || null, createdAt: new Date() }
     });
     return res.status(201).json(serializers.expenseToApi(expense));
   } catch (error) {

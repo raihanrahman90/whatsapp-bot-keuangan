@@ -23,7 +23,7 @@ function todoToApi(todo) {
   return toJsonValue({
     id: todo.id,
     code: todo.code,
-    legacy_sender_id: todo.legacySenderId,
+    whatsapp_id: todo.whatsappId,
     user_id: todo.userId,
     text: todo.text,
     created_at: todo.createdAt
