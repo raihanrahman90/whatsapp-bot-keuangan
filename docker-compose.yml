@@ -9,8 +9,8 @@ services:
       DB_PORT: 5432
       DB_NAME: finance_bot
       DB_USER: finance_bot_user
-      DB_PASSWORD: ${FINANCE_DB_PASSWORD}
-      DATABASE_URL: postgresql://finance_bot_user:${FINANCE_DB_PASSWORD}@shared-postgres:5432/finance_bot?schema=public
+      DB_PASSWORD: ${DB_PASSWORD}
+      DATABASE_URL: postgresql://finance_bot_user:${DB_PASSWORD}@shared-postgres:5432/finance_bot?schema=public
 
       CORS_ORIGIN: ${CORS_ORIGIN}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
