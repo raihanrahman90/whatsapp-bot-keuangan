@@ -20,9 +20,11 @@ function scheduleReconnect(): void {
 }
 
 export async function startWhatsAppBot(): Promise<void> {
-  const { default: makeWASocket, useMultiFileAuthState } = await import("@whiskeysockets/baileys");
+  const { default: makeWASocket, fetchLatestBaileysVersion, useMultiFileAuthState } = await import("@whiskeysockets/baileys");
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-  const socket = makeWASocket({ auth: state, logger: P({ level: "silent" }) });
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log(`Using WhatsApp Web version ${version.join(".")} (latest: ${isLatest})`);
+  const socket = makeWASocket({ auth: state, version, logger: P({ level: "silent" }) });
   activeSocket = socket;
   socket.ev.on("creds.update", saveCreds);
 
