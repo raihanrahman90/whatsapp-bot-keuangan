@@ -7,6 +7,7 @@ import { sendOtp } from "./otpDeliveryService";
 let activeSocket: WASocket | null = null;
 let isWhatsAppConnected = false;
 let reconnectTimer: NodeJS.Timeout | null = null;
+const whatsappWebVersion: [number, number, number] = [2, 3000, 1037787856];
 
 function scheduleReconnect(): void {
   if (reconnectTimer) return;
@@ -20,11 +21,10 @@ function scheduleReconnect(): void {
 }
 
 export async function startWhatsAppBot(): Promise<void> {
-  const { default: makeWASocket, fetchLatestBaileysVersion, useMultiFileAuthState } = await import("@whiskeysockets/baileys");
+  const { default: makeWASocket, useMultiFileAuthState } = await import("@whiskeysockets/baileys");
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-  const { version, isLatest } = await fetchLatestBaileysVersion();
-  console.log(`Using WhatsApp Web version ${version.join(".")} (latest: ${isLatest})`);
-  const socket = makeWASocket({ auth: state, version, logger: P({ level: "silent" }) });
+  console.log(`Using WhatsApp Web version ${whatsappWebVersion.join(".")}`);
+  const socket = makeWASocket({ auth: state, version: whatsappWebVersion, logger: P({ level: "silent" }) });
   activeSocket = socket;
   socket.ev.on("creds.update", saveCreds);
 
