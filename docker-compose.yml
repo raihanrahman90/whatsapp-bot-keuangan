@@ -46,11 +46,13 @@ services:
       context: ./web
       args:
         BACKEND_URL: http://whatsapp-bot:3001
+        NEXT_PUBLIC_WHATSAPP_BOT_PHONE: ${NEXT_PUBLIC_WHATSAPP_BOT_PHONE}
     container_name: finance-web
     depends_on:
       - whatsapp-bot
     environment:
       BACKEND_URL: http://whatsapp-bot:3001
+      NEXT_PUBLIC_WHATSAPP_BOT_PHONE: ${NEXT_PUBLIC_WHATSAPP_BOT_PHONE}
     ports:
       - "8080:8080"
     networks:

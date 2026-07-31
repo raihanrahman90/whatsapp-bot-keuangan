@@ -19,7 +19,14 @@ import {
   Smartphone,
   LogOut,
   Download,
+  MessageCircle,
 } from "lucide-react";
+
+const whatsappBotPhone = (process.env.NEXT_PUBLIC_WHATSAPP_BOT_PHONE || "").replace(/\D/g, "");
+const WHATSAPP_BOT_URL = whatsappBotPhone ? `https://wa.me/${whatsappBotPhone}` : "";
+const WHATSAPP_BOT_LABEL = whatsappBotPhone.startsWith("62")
+  ? `+62 ${whatsappBotPhone.slice(2, 5)}-${whatsappBotPhone.slice(5, 9)}-${whatsappBotPhone.slice(9)}`
+  : whatsappBotPhone;
 
 interface Expense {
   id: number;
@@ -319,6 +326,17 @@ export default function Dashboard() {
             </div>
             <h1 className="text-2xl font-bold">Masuk ke Dashboard</h1>
             <p className="mt-2 text-sm text-slate-400">Verifikasi nomor WhatsApp Anda dengan kode OTP dari bot.</p>
+            {WHATSAPP_BOT_URL && (
+              <a
+                href={WHATSAPP_BOT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 hover:text-emerald-200"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Hubungi bot WhatsApp: {WHATSAPP_BOT_LABEL}
+              </a>
+            )}
           </div>
 
           {authState === "checking" ? (
@@ -401,6 +419,18 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center space-x-3">
+            {WHATSAPP_BOT_URL && (
+              <a
+                href={WHATSAPP_BOT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition flex items-center space-x-2 text-sm border border-emerald-500/30"
+                title={`Hubungi bot WhatsApp: ${WHATSAPP_BOT_LABEL}`}
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="hidden md:inline">Chat Bot</span>
+              </a>
+            )}
             <button
               onClick={fetchData}
               disabled={refreshing}
