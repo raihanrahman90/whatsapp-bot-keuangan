@@ -1,6 +1,6 @@
 import type { WAMessage, WASocket } from "@whiskeysockets/baileys" with { "resolution-mode": "import" };
 import { buildExpenseMessage, getExpensesLastMonth, getExpensesThisMonth, saveExpense } from "./expenseServices";
-import { deleteExpenseDraft, getExpenseDraft, saveExpenseDraft } from "./expenseDraftService";
+import { deleteExpenseDraft, getExpenseDraft, reserveReceiptUploadForToday, saveExpenseDraft } from "./expenseDraftService";
 import { extractReceipt, type ReceiptExtractionInput, type ReceiptExtractionResult } from "./receiptExtractionService";
 import { getTodos, removeTodo, saveTodo } from "./todoServices";
 import { resolveUserId } from "../repositories/userRepository";
@@ -43,6 +43,18 @@ async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint
   }
 
   await sock.sendMessage(sender, { text: "Sedang membaca foto struk Anda…" });
+
+  try {
+    const canUpload = await reserveReceiptUploadForToday(getWhatsAppId(sender));
+    if (!canUpload) {
+      await sock.sendMessage(sender, { text: "Anda sudah mengunggah satu foto struk hari ini. Silakan coba lagi besok." });
+      return;
+    }
+  } catch (error) {
+    console.error("Receipt upload limit error:", error);
+    await sock.sendMessage(sender, { text: "Batas upload sedang tidak tersedia. Silakan coba lagi beberapa saat lagi." });
+    return;
+  }
 
   try {
     const { downloadMediaMessage } = await import("@whiskeysockets/baileys");
