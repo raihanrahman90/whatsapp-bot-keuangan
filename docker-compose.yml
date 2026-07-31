@@ -3,6 +3,8 @@ services:
     build: ./bot
     container_name: finance-whatsapp-bot
     command: sh -c "npm run migrate && npm start"
+    depends_on:
+      - redis
     environment:
       PORT: 3001
       DB_HOST: shared-postgres
@@ -11,7 +13,10 @@ services:
       DB_USER: finance_bot_user
       DB_PASSWORD: ${DB_PASSWORD}
       DATABASE_URL: postgresql://finance_bot_user:${DB_PASSWORD}@shared-postgres:5432/finance_bot?schema=public
-
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_RECEIPT_MODEL: ${OPENAI_RECEIPT_MODEL:-gpt-5.6-luna}
+      REDIS_URL: redis://redis:6379
+      EXPENSE_DRAFT_TTL_SECONDS: ${EXPENSE_DRAFT_TTL_SECONDS:-900}
       CORS_ORIGIN: ${CORS_ORIGIN}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
       OTP_RESEND_COOLDOWN_SECONDS: 60
@@ -27,6 +32,13 @@ services:
     volumes:
       - ./bot/data:/app/data
       - ./bot/auth_info:/app/auth_info
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: finance-redis
+    networks:
+      - finance-network
     restart: unless-stopped
 
   web-ui:

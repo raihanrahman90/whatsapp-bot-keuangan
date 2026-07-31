@@ -1,5 +1,7 @@
 import type { WAMessage, WASocket } from "@whiskeysockets/baileys" with { "resolution-mode": "import" };
 import { buildExpenseMessage, getExpensesLastMonth, getExpensesThisMonth, saveExpense } from "./expenseServices";
+import { deleteExpenseDraft, getExpenseDraft, saveExpenseDraft } from "./expenseDraftService";
+import { extractReceipt, type ReceiptExtractionInput, type ReceiptExtractionResult } from "./receiptExtractionService";
 import { getTodos, removeTodo, saveTodo } from "./todoServices";
 import { resolveUserId } from "../repositories/userRepository";
 
@@ -8,6 +10,8 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     const sender = msg.key.remoteJid;
     if (!sender) return;
     const userId = await resolveUserId({ remoteJid: sender, remoteJidAlt: msg.key.remoteJidAlt });
+    if (msg.message?.imageMessage) return handleReceiptImage(sock, sender, userId, msg);
+
     const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
     if (!text) return;
 
@@ -15,6 +19,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     const command = text.trim().toLowerCase();
     if (command === "help" || command === "menu") return showHelp(sock, sender);
     const whatsappId = getWhatsAppId(sender);
+    if (command === "simpan" || command === "ya") return handleSaveExpenseDraft(sock, sender, whatsappId);
     if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, whatsappId);
     if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, whatsappId);
     if (command === "todo") return showTodos(sock, sender, userId);
@@ -28,6 +33,90 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
 
 function getWhatsAppId(remoteJid: string): string {
   return remoteJid.split("@")[0];
+}
+
+async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint, msg: WAMessage): Promise<void> {
+  const mimeType = getReceiptMimeType(msg.message?.imageMessage?.mimetype);
+  if (!mimeType) {
+    await sock.sendMessage(sender, { text: "Maaf, kirim struk sebagai gambar JPG, PNG, atau WebP." });
+    return;
+  }
+
+  await sock.sendMessage(sender, { text: "Sedang membaca foto struk Anda…" });
+
+  try {
+    const { downloadMediaMessage } = await import("@whiskeysockets/baileys");
+    const image = await downloadMediaMessage(msg, "buffer", {});
+    const result = await extractReceipt({ image, mimeType });
+    await saveExpenseDraft(getWhatsAppId(sender), result);
+    console.log(`[user:${userId}] receipt extracted`, { amount: result.amount, confidence: result.confidence });
+    await sock.sendMessage(sender, { text: buildReceiptPreview(result) });
+  } catch (error) {
+    console.error("Receipt extraction error:", error);
+    await sock.sendMessage(sender, {
+      text: "Maaf, foto struk belum dapat dibaca. Pastikan foto jelas, seluruh total terlihat, lalu coba kirim ulang."
+    });
+  }
+}
+
+function getReceiptMimeType(mimeType: string | null | undefined): ReceiptExtractionInput["mimeType"] | null {
+  switch ((mimeType || "image/jpeg").toLowerCase()) {
+    case "image/jpeg":
+    case "image/jpg":
+      return "image/jpeg";
+    case "image/png":
+      return "image/png";
+    case "image/webp":
+      return "image/webp";
+    default:
+      return null;
+  }
+}
+
+function buildReceiptPreview(result: ReceiptExtractionResult): string {
+  const amount = result.amount === null ? "Tidak terbaca" : `Rp${result.amount.toLocaleString("id-ID")}`;
+  const details = [
+    "Hasil pembacaan struk:",
+    `Toko: ${result.merchant || "Tidak terbaca"}`,
+    `Tanggal: ${result.receiptDate || "Tidak terbaca"}`,
+    `Keterangan: ${result.description}`,
+    `Kategori: ${result.category || "Belum ditentukan"}`,
+    `Total: ${amount}`,
+    `Keyakinan: ${Math.round(result.confidence * 100)}%`
+  ];
+
+  if (result.warnings.length > 0) details.push(`Catatan: ${result.warnings.slice(0, 3).join("; ")}`);
+  details.push("", "Balas SIMPAN atau YA untuk menyimpan. Draft berlaku selama 15 menit.");
+  return details.join("\n");
+}
+
+async function handleSaveExpenseDraft(sock: WASocket, sender: string, whatsappId: string): Promise<void> {
+  const draft = await getExpenseDraft(whatsappId);
+  if (!draft) {
+    await sock.sendMessage(sender, { text: "Tidak ada draft struk yang aktif. Kirim foto struk terlebih dahulu." });
+    return;
+  }
+
+  const { receipt } = draft;
+  if (receipt.amount === null) {
+    await sock.sendMessage(sender, { text: "Total pada draft tidak terbaca, jadi pengeluaran belum dapat disimpan. Kirim foto yang lebih jelas." });
+    return;
+  }
+
+  await saveExpense(whatsappId, receipt.description, receipt.amount, {
+    category: receipt.category,
+    createdAt: parseReceiptDate(receipt.receiptDate)
+  });
+  await deleteExpenseDraft(whatsappId);
+  await sock.sendMessage(sender, {
+    text: `Pengeluaran berhasil disimpan.\nKeterangan: ${receipt.description}\nTotal: Rp${receipt.amount.toLocaleString("id-ID")}`
+  });
+}
+
+function parseReceiptDate(receiptDate: string | null): Date | undefined {
+  if (!receiptDate || !/^\d{4}-\d{2}-\d{2}$/.test(receiptDate)) return undefined;
+  const parsed = new Date(`${receiptDate}T12:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== receiptDate ? undefined : parsed;
 }
 
 async function handleExpenseInput(sock: WASocket, sender: string, text: string, whatsappId: string): Promise<void> {
@@ -89,6 +178,8 @@ async function showHelp(sock: WASocket, sender: string): Promise<void> {
     "",
     "Beli: Bensin",
     "Harga: 50000",
+    "",
+    "Atau kirim foto struk, lalu balas SIMPAN untuk mencatat hasilnya.",
     "",
     "📊 Melihat Laporan",
     "• pengeluaran bulan ini",

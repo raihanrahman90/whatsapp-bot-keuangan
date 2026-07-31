@@ -35,11 +35,22 @@ function mapRowToExpense(row: Awaited<ReturnType<typeof createExpense>>): Expens
   };
 }
 
-export async function saveExpense(whatsappId: string, item: string, price: number): Promise<void> {
-  if (!whatsappId || !item || !price) return;
-  if (Number.isNaN(price)) throw new Error("Price must be number");
+interface SaveExpenseOptions {
+  category?: string | null;
+  createdAt?: Date;
+}
 
-  await createExpense({ whatsappId, description: item, amount: price, createdAt: new Date() });
+export async function saveExpense(whatsappId: string, item: string, price: number, options: SaveExpenseOptions = {}): Promise<void> {
+  if (!whatsappId || !item || !price) return;
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Price must be a positive number");
+
+  await createExpense({
+    whatsappId,
+    description: item,
+    amount: price,
+    category: options.category,
+    createdAt: options.createdAt || new Date()
+  });
 }
 
 export async function getExpensesThisMonth(whatsappId: string): Promise<ExpenseSummary[]> {
