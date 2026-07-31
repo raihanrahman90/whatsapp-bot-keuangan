@@ -79,7 +79,7 @@ export async function extractReceipt(input: ReceiptExtractionInput): Promise<Rec
               "Gunakan hanya informasi yang tampak pada struk; jangan menebak.",
               "amount adalah total akhir yang benar-benar dibayar, dalam Rupiah tanpa pemisah ribuan.",
               "receiptDate harus YYYY-MM-DD atau null. Beri confidence 0 sampai 1 dan warning untuk data yang meragukan.",
-              "description harus ringkas dan cocok sebagai deskripsi expense berbahasa Indonesia."
+              "description harus berisi nama barang atau layanan secara ringkas, tanpa awalan umum seperti Pembelian, Belanja, atau Transaksi."
             ].join(" ")
           },
           {
@@ -115,8 +115,13 @@ export async function extractReceipt(input: ReceiptExtractionInput): Promise<Rec
     throw new Error("OpenAI receipt extraction returned invalid JSON");
   }
 
+  result.description = normalizeDescription(result.description);
   validateResult(result);
   return result;
+}
+
+function normalizeDescription(description: string): string {
+  return description.replace(/^\s*(?:pembelian|belanja|transaksi)\s*[:\-]?\s*/i, "").trim();
 }
 
 function getOutputText(payload: OpenAIResponsePayload): string | undefined {
