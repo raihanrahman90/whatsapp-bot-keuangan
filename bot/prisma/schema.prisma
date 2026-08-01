@@ -11,6 +11,7 @@ datasource db {
 model User {
   id                  BigInt             @id @default(autoincrement())
   phoneNumber         String?            @unique @map("phone_number") @db.VarChar(15)
+  subscription        Boolean            @default(false)
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
   lastAuthenticatedAt DateTime?          @map("last_authenticated_at") @db.Timestamp(6)
   todos               Todo[]
