@@ -13,6 +13,14 @@ export async function getWhatsAppIdsForUser(userId: bigint, phoneNumber: string)
   return [...new Set([phoneNumber, ...identities.map((identity) => identity.whatsappId)])];
 }
 
+export async function hasActiveSubscription(userId: bigint): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscription: true }
+  });
+  return user?.subscription === true;
+}
+
 function getPhoneNumberFromJids(remoteJid: string, remoteJidAlt?: string | null): string | null {
   const phoneJid = [remoteJid, remoteJidAlt].find((jid) =>
     String(jid || "").endsWith("@s.whatsapp.net")
