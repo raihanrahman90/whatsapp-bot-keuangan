@@ -20,6 +20,18 @@ export async function createExpense(data: CreateExpenseInput) {
   });
 }
 
+export async function createExpenses(data: CreateExpenseInput[]) {
+  return prisma.expense.createMany({
+    data: data.map((expense) => ({
+      amount: expense.amount,
+      category: expense.category || null,
+      description: expense.description || null,
+      whatsappId: expense.whatsappId,
+      createdAt: expense.createdAt || new Date()
+    }))
+  });
+}
+
 export async function getExpensesForMonth(whatsappId: string, year: number, month: number) {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 1);

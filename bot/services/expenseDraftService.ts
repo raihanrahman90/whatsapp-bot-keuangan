@@ -113,7 +113,8 @@ function isExpenseDraft(value: ExpenseDraft): boolean {
     typeof value.whatsappId === "string" &&
     typeof value.createdAt === "string" &&
     value.receipt &&
-    typeof value.receipt.description === "string" &&
+    Array.isArray(value.receipt.items) &&
+    value.receipt.items.every((item) => item && typeof item.name === "string" && item.name.trim().length > 0 && Number.isFinite(item.price) && item.price > 0) &&
     (typeof value.receipt.amount === "number" || value.receipt.amount === null)
   );
 }

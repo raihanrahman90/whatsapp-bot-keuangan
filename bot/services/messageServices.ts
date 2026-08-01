@@ -1,5 +1,5 @@
 import type { WAMessage, WASocket } from "@whiskeysockets/baileys" with { "resolution-mode": "import" };
-import { buildExpenseMessage, getExpensesLastMonth, getExpensesThisMonth, saveExpense } from "./expenseServices";
+import { buildExpenseMessage, getExpensesLastMonth, getExpensesThisMonth, saveExpense, saveExpenses } from "./expenseServices";
 import { deleteExpenseDraft, getExpenseDraft, reserveReceiptUploadForToday, saveExpenseDraft } from "./expenseDraftService";
 import { extractReceipt, type ReceiptExtractionInput, type ReceiptExtractionResult } from "./receiptExtractionService";
 import { getTodos, removeTodo, saveTodo } from "./todoServices";
@@ -64,7 +64,7 @@ async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint
     const image = await downloadMediaMessage(msg, "buffer", {});
     const result = await extractReceipt({ image, mimeType });
     await saveExpenseDraft(getWhatsAppId(sender), result);
-    console.log(`[user:${userId}] receipt extracted`, { amount: result.amount, confidence: result.confidence });
+    console.log(`[user:${userId}] receipt extracted`, { itemCount: result.items.length, amount: result.amount, confidence: result.confidence });
     await sock.sendMessage(sender, { text: buildReceiptPreview(result) });
   } catch (error) {
     console.error("Receipt extraction error:", error);
@@ -94,7 +94,8 @@ function buildReceiptPreview(result: ReceiptExtractionResult): string {
     "Hasil pembacaan struk:",
     `Toko: ${result.merchant || "Tidak terbaca"}`,
     `Tanggal: ${result.receiptDate || "Tidak terbaca"}`,
-    `Keterangan: ${result.description}`,
+    "Item yang dibeli:",
+    ...result.items.map((item) => formatReceiptItem(item.name, item.price)),
     `Kategori: ${result.category || "Belum ditentukan"}`,
     `Total: ${amount}`,
     `Keyakinan: ${Math.round(result.confidence * 100)}%`
@@ -113,19 +114,19 @@ async function handleSaveExpenseDraft(sock: WASocket, sender: string, whatsappId
   }
 
   const { receipt } = draft;
-  if (receipt.amount === null) {
-    await sock.sendMessage(sender, { text: "Total pada draft tidak terbaca, jadi pengeluaran belum dapat disimpan. Kirim foto yang lebih jelas." });
-    return;
-  }
-
-  await saveExpense(whatsappId, receipt.description, receipt.amount, {
+  await saveExpenses(whatsappId, receipt.items, {
     category: receipt.category,
     createdAt: parseReceiptDate(receipt.receiptDate)
   });
   await deleteExpenseDraft(whatsappId);
+  const savedTotal = receipt.items.reduce((sum, item) => sum + item.price, 0);
   await sock.sendMessage(sender, {
-    text: `Pengeluaran berhasil disimpan.\nKeterangan: ${receipt.description}\nTotal: Rp${receipt.amount.toLocaleString("id-ID")}`
+    text: `Pengeluaran berhasil disimpan.\nItem yang dibeli:\n${receipt.items.map((item) => formatReceiptItem(item.name, item.price)).join("\n")}\nTotal item tersimpan: Rp${savedTotal.toLocaleString("id-ID")}`
   });
+}
+
+function formatReceiptItem(name: string, price: number): string {
+  return `- ${name}: Rp${price.toLocaleString("id-ID")}`;
 }
 
 function parseReceiptDate(receiptDate: string | null): Date | undefined {

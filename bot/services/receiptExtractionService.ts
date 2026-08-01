@@ -10,12 +10,17 @@ export interface ReceiptExtractionInput {
 export interface ReceiptExtractionResult {
   merchant: string | null;
   receiptDate: string | null;
-  description: string;
+  items: ReceiptItem[];
   amount: number | null;
   currency: string;
   category: string | null;
   confidence: number;
   warnings: string[];
+}
+
+export interface ReceiptItem {
+  name: string;
+  price: number;
 }
 
 interface OpenAIResponsePayload {
@@ -29,14 +34,25 @@ interface OpenAIResponsePayload {
 const receiptSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["merchant", "receiptDate", "description", "amount", "currency", "category", "confidence", "warnings"],
+  required: ["merchant", "receiptDate", "items", "amount", "currency", "category", "confidence", "warnings"],
   properties: {
     merchant: { type: ["string", "null"] },
     receiptDate: {
       type: ["string", "null"],
       description: "Tanggal pada struk dalam format YYYY-MM-DD, atau null bila tidak terbaca."
     },
-    description: { type: "string" },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "price"],
+        properties: {
+          name: { type: "string", description: "Nama satu barang atau layanan pada struk." },
+          price: { type: "number", minimum: 0.01, description: "Harga satuan barang atau layanan dalam Rupiah." }
+        }
+      }
+    },
     amount: {
       type: ["number", "null"],
       description: "Total pembayaran akhir dalam Rupiah tanpa pemisah ribuan, atau null bila tidak terbaca."
@@ -79,7 +95,7 @@ export async function extractReceipt(input: ReceiptExtractionInput): Promise<Rec
               "Gunakan hanya informasi yang tampak pada struk; jangan menebak.",
               "amount adalah total akhir yang benar-benar dibayar, dalam Rupiah tanpa pemisah ribuan.",
               "receiptDate harus YYYY-MM-DD atau null. Beri confidence 0 sampai 1 dan warning untuk data yang meragukan.",
-              "description harus berisi nama barang atau layanan secara ringkas, tanpa awalan umum seperti Pembelian, Belanja, atau Transaksi."
+              "items harus berisi semua barang atau layanan yang terbaca. Setiap elemen wajib memiliki name dan price dalam Rupiah, dengan price sebagai harga satuan, bukan total struk atau subtotal. Jika struk menunjukkan kuantitas lebih dari satu, buat satu elemen untuk setiap unit agar setiap harga yang disimpan adalah harga satuan. Jangan gabungkan beberapa item menjadi satu teks, dan jangan memakai awalan umum seperti Pembelian, Belanja, atau Transaksi."
             ].join(" ")
           },
           {
@@ -115,13 +131,21 @@ export async function extractReceipt(input: ReceiptExtractionInput): Promise<Rec
     throw new Error("OpenAI receipt extraction returned invalid JSON");
   }
 
-  result.description = normalizeDescription(result.description);
+  result.items = normalizeItems(result.items);
   validateResult(result);
   return result;
 }
 
-function normalizeDescription(description: string): string {
-  return description.replace(/^\s*(?:pembelian|belanja|transaksi)\s*[:\-]?\s*/i, "").trim();
+function normalizeItems(items: ReceiptItem[]): ReceiptItem[] {
+  return items
+    .filter((item): item is ReceiptItem => Boolean(item && typeof item === "object"))
+    .map((item) => ({
+      name: typeof item.name === "string"
+        ? item.name.replace(/^\s*(?:pembelian|belanja|transaksi)\s*[:\-]?\s*/i, "").trim()
+        : "",
+      price: item.price
+    }))
+    .filter((item) => Boolean(item.name));
 }
 
 function getOutputText(payload: OpenAIResponsePayload): string | undefined {
@@ -134,8 +158,10 @@ function getOutputText(payload: OpenAIResponsePayload): string | undefined {
 
 function validateResult(result: ReceiptExtractionResult): void {
   if (!result || typeof result !== "object") throw new Error("OpenAI receipt extraction returned an invalid result");
-  if (typeof result.description !== "string" || !result.description.trim()) {
-    throw new Error("OpenAI receipt extraction returned no description");
+  if (!Array.isArray(result.items) || result.items.length === 0 || !result.items.every(
+    (item) => item && typeof item.name === "string" && item.name.trim() && Number.isFinite(item.price) && item.price > 0
+  )) {
+    throw new Error("OpenAI receipt extraction returned no items");
   }
   if (result.amount !== null && (!Number.isFinite(result.amount) || result.amount <= 0)) {
     throw new Error("OpenAI receipt extraction returned an invalid amount");

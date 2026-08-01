@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createExpense, getExpensesForMonth } from "../repositories/expenseRepository";
+import { createExpense, createExpenses, getExpensesForMonth } from "../repositories/expenseRepository";
 import { formatPrice, truncate } from "../utils/formatters";
 
 export interface ExpenseSummary {
@@ -40,6 +40,11 @@ interface SaveExpenseOptions {
   createdAt?: Date;
 }
 
+export interface ExpenseItem {
+  name: string;
+  price: number;
+}
+
 export async function saveExpense(whatsappId: string, item: string, price: number, options: SaveExpenseOptions = {}): Promise<void> {
   if (!whatsappId || !item || !price) return;
   if (!Number.isFinite(price) || price <= 0) throw new Error("Price must be a positive number");
@@ -51,6 +56,21 @@ export async function saveExpense(whatsappId: string, item: string, price: numbe
     category: options.category,
     createdAt: options.createdAt || new Date()
   });
+}
+
+export async function saveExpenses(whatsappId: string, items: ExpenseItem[], options: SaveExpenseOptions = {}): Promise<void> {
+  if (!whatsappId || items.length === 0) return;
+  if (items.some((item) => !item.name || !Number.isFinite(item.price) || item.price <= 0)) {
+    throw new Error("Every expense item must have a name and a positive price");
+  }
+
+  await createExpenses(items.map((item) => ({
+    whatsappId,
+    description: item.name,
+    amount: item.price,
+    category: options.category,
+    createdAt: options.createdAt || new Date()
+  })));
 }
 
 export async function getExpensesThisMonth(whatsappId: string): Promise<ExpenseSummary[]> {
