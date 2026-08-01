@@ -37,8 +37,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: finance-redis
+    command: redis-server --appendonly yes
     networks:
       - finance-network
+    volumes:
+      - redis-data:/data
     restart: unless-stopped
 
   web-ui:
@@ -63,3 +66,6 @@ networks:
   finance-network:
   shared-backend:
     external: true
+
+volumes:
+  redis-data:

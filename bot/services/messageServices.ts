@@ -43,13 +43,15 @@ async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint
   }
 
   await sock.sendMessage(sender, { text: "Sedang membaca foto struk Anda…" });
-
+  console.log("Memulai pengecekan limit");
   try {
     const subscribed = await hasActiveSubscription(userId);
+    console.log(`Hasil pengecekan, user subscription ${subscribed}`);
     if (!subscribed) {
       const canUpload = await reserveReceiptUploadForToday(getWhatsAppId(sender));
+      console.log(`Hasil pengecekan apakah user bisa upload ${canUpload}`);
       if (!canUpload) {
-        await sock.sendMessage(sender, { text: "Anda sudah mengunggah satu foto struk hari ini. Silakan coba lagi besok." });
+        await sock.sendMessage(sender, { text: "Saat ini setiap user hanya dapat mengupload 1 foto perhari. Silakan coba lagi besok." });
         return;
       }
     }
