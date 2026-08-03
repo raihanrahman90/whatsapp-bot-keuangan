@@ -78,7 +78,16 @@ export async function requestOtp(phoneNumber: unknown, ipAddress?: string): Prom
   await deliverOtp(normalizedPhoneNumber, code, OTP_TTL_MS / 60_000);
 
   await prisma.$transaction(async (tx) => {
-    await tx.user.upsert({ where: { phoneNumber: normalizedPhoneNumber }, update: {}, create: { phoneNumber: normalizedPhoneNumber } });
+    const user = await tx.user.upsert({
+      where: { phoneNumber: normalizedPhoneNumber },
+      update: {},
+      create: { phoneNumber: normalizedPhoneNumber }
+    });
+    await tx.whatsAppIdentity.upsert({
+      where: { whatsappId: normalizedPhoneNumber },
+      update: { lastSeenAt: new Date() },
+      create: { userId: user.id, whatsappId: normalizedPhoneNumber }
+    });
     await tx.otpChallenge.deleteMany({ where: { phoneNumber: normalizedPhoneNumber } });
     await tx.otpChallenge.create({
       data: {

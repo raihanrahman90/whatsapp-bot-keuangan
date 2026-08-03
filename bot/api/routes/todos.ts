@@ -28,7 +28,6 @@ router.post("/", async (req, res) => {
     const auth = (req as AuthenticatedRequest).auth;
     const { text } = (req.body || {}) as { text?: string };
     if (!text) return res.status(400).json({ error: "Missing required field: text" });
-    if (!auth.whatsappId) return res.status(409).json({ error: "WhatsApp identity not found for this account" });
 
     let code: string | undefined;
     for (let attempts = 0; attempts < 10; attempts += 1) {
@@ -39,7 +38,7 @@ router.post("/", async (req, res) => {
     if (!code) return res.status(500).json({ error: "Could not generate unique code" });
 
     const todo = await prisma.todo.create({
-      data: { code, userId: auth.userId, whatsappId: auth.whatsappId, text, createdAt: new Date() }
+      data: { code, userId: auth.userId, whatsappId: auth.whatsappId, phoneNumber: auth.phoneNumber, text, createdAt: new Date() }
     });
     return res.status(201).json(serializers.todoToApi(todo));
   } catch (error) {

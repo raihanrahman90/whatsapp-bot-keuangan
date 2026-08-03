@@ -37,6 +37,7 @@ function mapRowToExpense(row: Awaited<ReturnType<typeof createExpense>>): Expens
 
 interface SaveExpenseOptions {
   category?: string | null;
+  phoneNumber?: string | null;
   createdAt?: Date;
 }
 
@@ -54,6 +55,7 @@ export async function saveExpense(whatsappId: string, item: string, price: numbe
     description: item,
     amount: price,
     category: options.category,
+    phoneNumber: options.phoneNumber,
     createdAt: options.createdAt || new Date()
   });
 }
@@ -69,6 +71,7 @@ export async function saveExpenses(whatsappId: string, items: ExpenseItem[], opt
     description: item.name,
     amount: item.price,
     category: options.category,
+    phoneNumber: options.phoneNumber,
     createdAt: options.createdAt || new Date()
   })));
 }

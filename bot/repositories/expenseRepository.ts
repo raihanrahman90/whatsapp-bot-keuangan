@@ -5,6 +5,7 @@ interface CreateExpenseInput {
   category?: string | null;
   description?: string | null;
   whatsappId: string;
+  phoneNumber?: string | null;
   createdAt?: Date;
 }
 
@@ -15,6 +16,7 @@ export async function createExpense(data: CreateExpenseInput) {
       category: data.category || null,
       description: data.description || null,
       whatsappId: data.whatsappId,
+      phoneNumber: data.phoneNumber || null,
       createdAt: data.createdAt || new Date()
     }
   });
@@ -27,6 +29,7 @@ export async function createExpenses(data: CreateExpenseInput[]) {
       category: expense.category || null,
       description: expense.description || null,
       whatsappId: expense.whatsappId,
+      phoneNumber: expense.phoneNumber || null,
       createdAt: expense.createdAt || new Date()
     }))
   });

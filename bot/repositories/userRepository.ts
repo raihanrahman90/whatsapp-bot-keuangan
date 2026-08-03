@@ -21,6 +21,14 @@ export async function hasActiveSubscription(userId: bigint): Promise<boolean> {
   return user?.subscription === true;
 }
 
+export async function getPhoneNumberForUser(userId: bigint): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { phoneNumber: true }
+  });
+  return user?.phoneNumber || null;
+}
+
 function getPhoneNumberFromJids(remoteJid: string, remoteJidAlt?: string | null): string | null {
   const phoneJid = [remoteJid, remoteJidAlt].find((jid) =>
     String(jid || "").endsWith("@s.whatsapp.net")

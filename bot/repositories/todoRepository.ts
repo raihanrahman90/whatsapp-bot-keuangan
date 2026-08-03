@@ -6,6 +6,7 @@ interface CreateTodoInput {
   code: string;
   userId?: UserId | null;
   whatsappId?: string | null;
+  phoneNumber?: string | null;
   text: string;
   createdAt?: Date;
 }
@@ -20,6 +21,7 @@ export async function createTodo(data: CreateTodoInput) {
       code: data.code,
       userId: data.userId == null ? null : toUserId(data.userId),
       whatsappId: data.whatsappId || "",
+      phoneNumber: data.phoneNumber || null,
       text: data.text,
       createdAt: data.createdAt || new Date()
     }
