@@ -15,7 +15,6 @@ model User {
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
   lastAuthenticatedAt DateTime?          @map("last_authenticated_at") @db.Timestamp(6)
   todos               Todo[]
-  whatsappIdentities  WhatsAppIdentity[]
   otpChallenge        OtpChallenge?
 
   @@map("users")
@@ -68,16 +67,4 @@ model OtpRequestAttempt {
   @@index([phoneNumber, createdAt])
   @@index([ipAddress, createdAt])
   @@map("otp_request_attempts")
-}
-
-model WhatsAppIdentity {
-  id         BigInt   @id @default(autoincrement())
-  userId     BigInt   @map("user_id")
-  whatsappId String   @unique @map("whatsapp_id") @db.VarChar(100)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamp(6)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("whatsapp_identities")
 }

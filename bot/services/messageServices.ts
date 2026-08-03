@@ -11,7 +11,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     if (!sender) return;
     const userId = await resolveUserId({ remoteJid: sender, remoteJidAlt: msg.key.remoteJidAlt });
     const phoneNumber = await getPhoneNumberForUser(userId);
-    if (msg.message?.imageMessage) return handleReceiptImage(sock, sender, userId, msg);
+    if (msg.message?.imageMessage) return handleReceiptImage(sock, sender, userId, phoneNumber, msg);
 
     const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
     if (!text) return;
@@ -19,24 +19,20 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     console.log(`[user:${userId}] ${text}`);
     const command = text.trim().toLowerCase();
     if (command === "help" || command === "menu") return showHelp(sock, sender);
-    const whatsappId = getWhatsAppId(sender);
-    if (command === "simpan" || command === "ya") return handleSaveExpenseDraft(sock, sender, whatsappId, phoneNumber);
-    if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, whatsappId);
-    if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, whatsappId);
+    if (command === "simpan" || command === "ya") return handleSaveExpenseDraft(sock, sender, phoneNumber);
+    if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, phoneNumber);
+    if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, phoneNumber);
     if (command === "todo") return showTodos(sock, sender, userId);
-    if (text.toLowerCase().startsWith("todo:")) return handleTodoInput(sock, sender, userId, text, whatsappId, phoneNumber);
+    if (text.toLowerCase().startsWith("todo:")) return handleTodoInput(sock, sender, userId, text, phoneNumber);
     if (text.toLowerCase().startsWith("todo remove:")) return handleRemoveTodo(sock, sender, userId, text);
-    return handleExpenseInput(sock, sender, text, whatsappId, phoneNumber);
+    return handleExpenseInput(sock, sender, text, phoneNumber);
   } catch (error) {
     console.error("Terjadi kesalahan:", error);
   }
 }
 
-function getWhatsAppId(remoteJid: string): string {
-  return remoteJid.split("@")[0];
-}
-
-async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint, msg: WAMessage): Promise<void> {
+async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint, phoneNumber: string | null, msg: WAMessage): Promise<void> {
+  if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
   const mimeType = getReceiptMimeType(msg.message?.imageMessage?.mimetype);
   if (!mimeType) {
     await sock.sendMessage(sender, { text: "Maaf, kirim struk sebagai gambar JPG, PNG, atau WebP." });
@@ -49,7 +45,7 @@ async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint
     const subscribed = await hasActiveSubscription(userId);
     console.log(`Hasil pengecekan, user subscription ${subscribed}`);
     if (!subscribed) {
-      const canUpload = await reserveReceiptUploadForToday(getWhatsAppId(sender));
+      const canUpload = await reserveReceiptUploadForToday(phoneNumber);
       console.log(`Hasil pengecekan apakah user bisa upload ${canUpload}`);
       if (!canUpload) {
         await sock.sendMessage(sender, { text: "Saat ini setiap user hanya dapat mengupload 1 foto perhari. Silakan coba lagi besok." });
@@ -66,7 +62,7 @@ async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint
     const { downloadMediaMessage } = await import("@whiskeysockets/baileys");
     const image = await downloadMediaMessage(msg, "buffer", {});
     const result = await extractReceipt({ image, mimeType });
-    await saveExpenseDraft(getWhatsAppId(sender), result);
+    await saveExpenseDraft(phoneNumber, result);
     console.log(`[user:${userId}] receipt extracted`, { itemCount: result.items.length, amount: result.amount, confidence: result.confidence });
     await sock.sendMessage(sender, { text: buildReceiptPreview(result) });
   } catch (error) {
@@ -109,20 +105,19 @@ function buildReceiptPreview(result: ReceiptExtractionResult): string {
   return details.join("\n");
 }
 
-async function handleSaveExpenseDraft(sock: WASocket, sender: string, whatsappId: string, phoneNumber: string | null): Promise<void> {
-  const draft = await getExpenseDraft(whatsappId);
+async function handleSaveExpenseDraft(sock: WASocket, sender: string, phoneNumber: string | null): Promise<void> {
+  if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
+  const draft = await getExpenseDraft(phoneNumber);
   if (!draft) {
     await sock.sendMessage(sender, { text: "Tidak ada draft struk yang aktif. Kirim foto struk terlebih dahulu." });
     return;
   }
-
   const { receipt } = draft;
-  await saveExpenses(whatsappId, receipt.items, {
+  await saveExpenses(phoneNumber, receipt.items, {
     category: receipt.category,
-    phoneNumber,
     createdAt: parseReceiptDate(receipt.receiptDate)
   });
-  await deleteExpenseDraft(whatsappId);
+  await deleteExpenseDraft(phoneNumber);
   const savedTotal = receipt.items.reduce((sum, item) => sum + item.price, 0);
   await sock.sendMessage(sender, {
     text: `Pengeluaran berhasil disimpan.\nItem yang dibeli:\n${receipt.items.map((item) => formatReceiptItem(item.name, item.price)).join("\n")}\nTotal item tersimpan: Rp${savedTotal.toLocaleString("id-ID")}`
@@ -139,31 +134,39 @@ function parseReceiptDate(receiptDate: string | null): Date | undefined {
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== receiptDate ? undefined : parsed;
 }
 
-async function handleExpenseInput(sock: WASocket, sender: string, text: string, whatsappId: string, phoneNumber: string | null): Promise<void> {
+async function handleExpenseInput(sock: WASocket, sender: string, text: string, phoneNumber: string | null): Promise<void> {
   const match = text.match(/Beli:\s*(.+)\nHarga:\s*([\d.,]+)/i);
   if (!match) return showHelp(sock, sender);
   const item = match[1].trim();
   const price = Number.parseInt(match[2].replace(/[^\d]/g, ""), 10);
-  await saveExpense(whatsappId, item, price, { phoneNumber });
+  if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
+  await saveExpense(phoneNumber, item, price);
   await sock.sendMessage(sender, { text: `📝 Pengeluaran dicatat\nBarang: ${item}\nHarga: Rp${price.toLocaleString("id-ID")}` });
 }
 
-async function showExpensesThisMonth(sock: WASocket, sender: string, whatsappId: string): Promise<void> {
-  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Ini", await getExpensesThisMonth(whatsappId)) });
+async function showExpensesThisMonth(sock: WASocket, sender: string, phoneNumber: string | null): Promise<void> {
+  if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
+  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Ini", await getExpensesThisMonth(phoneNumber)) });
 }
 
-async function showExpensesLastMonth(sock: WASocket, sender: string, whatsappId: string): Promise<void> {
-  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Lalu", await getExpensesLastMonth(whatsappId)) });
+async function showExpensesLastMonth(sock: WASocket, sender: string, phoneNumber: string | null): Promise<void> {
+  if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
+  await sock.sendMessage(sender, { text: buildExpenseMessage("Pengeluaran Bulan Lalu", await getExpensesLastMonth(phoneNumber)) });
 }
 
-async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, text: string, whatsappId: string, phoneNumber: string | null): Promise<void> {
+async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, text: string, phoneNumber: string | null): Promise<void> {
   const todoText = text.substring(5).trim();
   if (!todoText) {
     await sock.sendMessage(sender, { text: "Format:\nTodo: Belajar NodeJS" });
     return;
   }
-  const todo = await saveTodo(userId, todoText, whatsappId, phoneNumber);
+  if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
+  const todo = await saveTodo(userId, phoneNumber, todoText);
   await sock.sendMessage(sender, { text: `📝 Todo berhasil ditambahkan\n\nKode : ${todo.code}\nTodo : ${todo.text}` });
+}
+
+async function sendPhoneNumberRequired(sock: WASocket, sender: string): Promise<void> {
+  await sock.sendMessage(sender, { text: "Nomor WhatsApp Anda belum dapat diidentifikasi. Silakan kirim pesan dari nomor utama Anda, lalu coba lagi." });
 }
 
 async function handleRemoveTodo(sock: WASocket, sender: string, userId: bigint, text: string): Promise<void> {

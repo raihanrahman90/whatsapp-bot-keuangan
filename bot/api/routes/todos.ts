@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
     });
     return res.json(todos.map((todo) => {
       const serialized = serializers.todoToApi(todo);
-      return { code: serialized.code, whatsapp_id: serialized.whatsapp_id, text: serialized.text, created_at: serialized.created_at };
+      return { code: serialized.code, text: serialized.text, created_at: serialized.created_at };
     }));
   } catch (error) {
     const message = getErrorMessage(error, "Failed to fetch todos");
@@ -38,7 +38,7 @@ router.post("/", async (req, res) => {
     if (!code) return res.status(500).json({ error: "Could not generate unique code" });
 
     const todo = await prisma.todo.create({
-      data: { code, userId: auth.userId, whatsappId: auth.whatsappId, phoneNumber: auth.phoneNumber, text, createdAt: new Date() }
+      data: { code, userId: auth.userId, phoneNumber: auth.phoneNumber, text, createdAt: new Date() }
     });
     return res.status(201).json(serializers.todoToApi(todo));
   } catch (error) {

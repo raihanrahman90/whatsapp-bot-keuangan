@@ -43,7 +43,6 @@ exports.down = async function (knex) {
     table.string("whatsapp_id", 100).notNullable().defaultTo("");
   });
 
-  for (const tableName of ["expenses", "todos"]) {
-    await knex(tableName).whereNotNull("phone_number").update({ whatsapp_id: knex.ref("phone_number") });
-  }
+  await knex.raw("UPDATE expenses SET whatsapp_id = phone_number WHERE phone_number IS NOT NULL");
+  await knex.raw("UPDATE todos SET whatsapp_id = phone_number WHERE phone_number IS NOT NULL");
 };

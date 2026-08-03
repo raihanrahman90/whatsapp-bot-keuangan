@@ -30,7 +30,7 @@ const WHATSAPP_BOT_LABEL = whatsappBotPhone.startsWith("62")
 
 interface Expense {
   id: number;
-  whatsapp_id: string;
+  phone_number: string | null;
   amount: number | string;
   category: string | null;
   description: string;
@@ -39,7 +39,7 @@ interface Expense {
 
 interface Todo {
   code: string;
-  whatsapp_id: string;
+  phone_number: string | null;
   text: string;
   created_at: string;
 }
@@ -282,10 +282,10 @@ export default function Dashboard() {
   const downloadExpenses = () => {
     const escapeCsv = (value: string | number | null | undefined) => `"${String(value ?? "").replace(/"/g, '""')}"`;
     const rows = [
-      ["ID", "WhatsApp ID", "Deskripsi", "Kategori", "Jumlah", "Tanggal"],
+      ["ID", "Nomor WhatsApp", "Deskripsi", "Kategori", "Jumlah", "Tanggal"],
       ...filteredExpenses.map((expense) => [
         expense.id,
-        expense.whatsapp_id,
+        expense.phone_number,
         expense.description,
         expense.category,
         expense.amount,
@@ -305,7 +305,7 @@ export default function Dashboard() {
     (e) =>
       (selectedExpenseCategory === "" || e.category === selectedExpenseCategory) &&
       (e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(e.whatsapp_id).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(e.phone_number).toLowerCase().includes(searchQuery.toLowerCase()) ||
         (e.category && e.category.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
@@ -313,7 +313,7 @@ export default function Dashboard() {
     (t) =>
       t.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(t.whatsapp_id).toLowerCase().includes(searchQuery.toLowerCase())
+      String(t.phone_number).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (authState !== "authenticated") {
@@ -619,7 +619,7 @@ export default function Dashboard() {
                       <th className="px-6 py-4">No</th>
                       <th className="px-6 py-4">Deskripsi / Barang</th>
                       <th className="px-6 py-4">Kategori</th>
-                      <th className="px-6 py-4">WhatsApp ID</th>
+                      <th className="px-6 py-4">Nomor WhatsApp</th>
                       <th className="px-6 py-4">Tanggal</th>
                       <th className="px-6 py-4 text-right">Jumlah</th>
                     </tr>
@@ -638,7 +638,7 @@ export default function Dashboard() {
                         <td className="px-6 py-4 font-mono text-xs text-slate-400">
                           <div className="flex items-center space-x-1.5">
                             <User className="h-3.5 w-3.5 text-slate-500" />
-                            <span>{expense.whatsapp_id}</span>
+                            <span>{expense.phone_number}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-400">{formatDate(expense.created_at)}</td>
@@ -685,7 +685,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                      <span className="font-mono">{todo.whatsapp_id}</span>
+                      <span className="font-mono">{todo.phone_number}</span>
                       <span>{formatDate(todo.created_at)}</span>
                     </div>
                   </div>

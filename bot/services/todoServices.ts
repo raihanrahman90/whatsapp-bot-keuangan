@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import prisma = require("../config/prisma");
 import { createTodo, deleteTodo, getTodoByCode, getTodos as findTodos } from "../repositories/todoRepository";
 
 export interface TodoSummary {

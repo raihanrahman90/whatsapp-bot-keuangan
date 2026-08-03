@@ -14,49 +14,49 @@ interface RedisDraftClient {
 }
 
 export interface ExpenseDraft {
-  whatsappId: string;
+  phoneNumber: string;
   receipt: ReceiptExtractionResult;
   createdAt: string;
 }
 
 let redisClientPromise: Promise<RedisDraftClient> | null = null;
 
-export async function saveExpenseDraft(whatsappId: string, receipt: ReceiptExtractionResult): Promise<ExpenseDraft> {
-  const draft: ExpenseDraft = { whatsappId, receipt, createdAt: new Date().toISOString() };
-  await (await getRedisClient()).set(getDraftKey(whatsappId), JSON.stringify(draft), { EX: getDraftTtlSeconds() });
+export async function saveExpenseDraft(phoneNumber: string, receipt: ReceiptExtractionResult): Promise<ExpenseDraft> {
+  const draft: ExpenseDraft = { phoneNumber, receipt, createdAt: new Date().toISOString() };
+  await (await getRedisClient()).set(getDraftKey(phoneNumber), JSON.stringify(draft), { EX: getDraftTtlSeconds() });
   return draft;
 }
 
-export async function getExpenseDraft(whatsappId: string): Promise<ExpenseDraft | null> {
-  const rawDraft = await (await getRedisClient()).get(getDraftKey(whatsappId));
+export async function getExpenseDraft(phoneNumber: string): Promise<ExpenseDraft | null> {
+  const rawDraft = await (await getRedisClient()).get(getDraftKey(phoneNumber));
   if (!rawDraft) return null;
 
   try {
     const draft = JSON.parse(rawDraft) as ExpenseDraft;
-    if (!isExpenseDraft(draft) || draft.whatsappId !== whatsappId) throw new Error("Invalid expense draft");
+    if (!isExpenseDraft(draft) || draft.phoneNumber !== phoneNumber) throw new Error("Invalid expense draft");
     return draft;
   } catch {
-    await deleteExpenseDraft(whatsappId);
+    await deleteExpenseDraft(phoneNumber);
     return null;
   }
 }
 
-export async function deleteExpenseDraft(whatsappId: string): Promise<void> {
-  await (await getRedisClient()).del(getDraftKey(whatsappId));
+export async function deleteExpenseDraft(phoneNumber: string): Promise<void> {
+  await (await getRedisClient()).del(getDraftKey(phoneNumber));
 }
 
-/** Returns false when this WhatsApp user has already uploaded a receipt today. */
-export async function reserveReceiptUploadForToday(whatsappId: string): Promise<boolean> {
+/** Returns false when this phone number has already uploaded a receipt today. */
+export async function reserveReceiptUploadForToday(phoneNumber: string): Promise<boolean> {
   const result = await (await getRedisClient()).set(
-    `${RECEIPT_UPLOAD_KEY_PREFIX}${getTodayKey()}:${encodeURIComponent(whatsappId)}`,
+    `${RECEIPT_UPLOAD_KEY_PREFIX}${getTodayKey()}:${encodeURIComponent(phoneNumber)}`,
     "1",
     { EX: getSecondsUntilTomorrow(), NX: true }
   );
   return result === "OK";
 }
 
-function getDraftKey(whatsappId: string): string {
-  return `${DRAFT_KEY_PREFIX}${encodeURIComponent(whatsappId)}`;
+function getDraftKey(phoneNumber: string): string {
+  return `${DRAFT_KEY_PREFIX}${encodeURIComponent(phoneNumber)}`;
 }
 
 function getDraftTtlSeconds(): number {
@@ -110,7 +110,7 @@ async function createRedisClient(): Promise<RedisDraftClient> {
 function isExpenseDraft(value: ExpenseDraft): boolean {
   return Boolean(
     value &&
-    typeof value.whatsappId === "string" &&
+    typeof value.phoneNumber === "string" &&
     typeof value.createdAt === "string" &&
     value.receipt &&
     Array.isArray(value.receipt.items) &&

@@ -38,18 +38,10 @@ async function requireAuth(req, res, next) {
   try {
     const user = await prisma.user.findUnique({
       where: { phoneNumber: authenticatedUser.phoneNumber },
-      select: {
-        id: true,
-        whatsappIdentities: {
-          select: { whatsappId: true },
-          orderBy: { lastSeenAt: "desc" },
-          take: 1
-        }
-      }
+      select: { id: true }
     });
     if (!user) return res.status(401).json({ error: "Authentication required" });
-    const whatsappId = user.whatsappIdentities[0]?.whatsappId;
-    req.auth = { ...authenticatedUser, userId: user.id, ...(whatsappId ? { whatsappId } : {}) };
+    req.auth = { ...authenticatedUser, userId: user.id };
     return next();
   } catch (error) {
     return next(error);

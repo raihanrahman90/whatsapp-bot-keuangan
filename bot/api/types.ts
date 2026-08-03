@@ -4,7 +4,6 @@ export interface AuthenticatedRequest extends Request {
   auth: {
     phoneNumber: string;
     userId: bigint;
-    whatsappId?: string;
   };
 }
 
