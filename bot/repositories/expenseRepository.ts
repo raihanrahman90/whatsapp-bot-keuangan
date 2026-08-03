@@ -4,8 +4,7 @@ interface CreateExpenseInput {
   amount: number | string;
   category?: string | null;
   description?: string | null;
-  whatsappId: string;
-  phoneNumber?: string | null;
+  phoneNumber: string;
   createdAt?: Date;
 }
 
@@ -15,8 +14,7 @@ export async function createExpense(data: CreateExpenseInput) {
       amount: data.amount,
       category: data.category || null,
       description: data.description || null,
-      whatsappId: data.whatsappId,
-      phoneNumber: data.phoneNumber || null,
+      phoneNumber: data.phoneNumber,
       createdAt: data.createdAt || new Date()
     }
   });
@@ -28,20 +26,19 @@ export async function createExpenses(data: CreateExpenseInput[]) {
       amount: expense.amount,
       category: expense.category || null,
       description: expense.description || null,
-      whatsappId: expense.whatsappId,
-      phoneNumber: expense.phoneNumber || null,
+      phoneNumber: expense.phoneNumber,
       createdAt: expense.createdAt || new Date()
     }))
   });
 }
 
-export async function getExpensesForMonth(whatsappId: string, year: number, month: number) {
+export async function getExpensesForMonth(phoneNumber: string, year: number, month: number) {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 1);
 
   return prisma.expense.findMany({
     where: {
-      whatsappId,
+      phoneNumber,
       createdAt: { gte: start, lt: end }
     },
     orderBy: { createdAt: "asc" }

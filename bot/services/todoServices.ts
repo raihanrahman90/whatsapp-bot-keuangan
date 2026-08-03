@@ -31,10 +31,10 @@ function generateCode(): string {
   return Math.random().toString(36).substring(2, 4).toUpperCase();
 }
 
-export async function saveTodo(userId: bigint, text: string, whatsappId = "", phoneNumber?: string | null): Promise<TodoSummary> {
+export async function saveTodo(userId: bigint, phoneNumber: string, text: string): Promise<TodoSummary> {
   let code = generateCode();
   while (await getTodoByCode(code)) code = generateCode();
-  return mapRowToTodo(await createTodo({ code, userId, whatsappId, phoneNumber, text, createdAt: new Date() }));
+  return mapRowToTodo(await createTodo({ code, userId, phoneNumber, text, createdAt: new Date() }));
 }
 
 export async function removeTodo(userId: bigint, code: string): Promise<boolean> {
@@ -58,7 +58,9 @@ export async function migrateJsonToDb(): Promise<void> {
       console.log(`[Migration] Found ${todos.length} todos in ${path.basename(targetFile)}. Migrating to database...`);
       for (const todo of todos) {
         if (!todo.code || todo.userId == null || !todo.text || await getTodoByCode(todo.code)) continue;
-        await createTodo({ code: todo.code, userId: todo.userId, text: todo.text, createdAt: todo.createdAt ? new Date(todo.createdAt) : new Date() });
+        const user = await prisma.user.findUnique({ where: { id: BigInt(todo.userId) }, select: { phoneNumber: true } });
+        if (!user?.phoneNumber) continue;
+        await createTodo({ code: todo.code, userId: todo.userId, phoneNumber: user.phoneNumber, text: todo.text, createdAt: todo.createdAt ? new Date(todo.createdAt) : new Date() });
       }
       console.log(`[Migration] Successfully migrated ${todos.length} todos to database.`);
     }

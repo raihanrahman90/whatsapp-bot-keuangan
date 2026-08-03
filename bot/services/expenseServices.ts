@@ -5,7 +5,6 @@ import { formatPrice, truncate } from "../utils/formatters";
 
 export interface ExpenseSummary {
   id: bigint;
-  whatsappId: string;
   item: string | null;
   price: number;
   createdAt: Date | null;
@@ -28,7 +27,6 @@ function getFilePath(filename: string): string {
 function mapRowToExpense(row: Awaited<ReturnType<typeof createExpense>>): ExpenseSummary {
   return {
     id: row.id,
-    whatsappId: row.whatsappId,
     item: row.description,
     price: Number(row.amount),
     createdAt: row.createdAt
@@ -37,7 +35,6 @@ function mapRowToExpense(row: Awaited<ReturnType<typeof createExpense>>): Expens
 
 interface SaveExpenseOptions {
   category?: string | null;
-  phoneNumber?: string | null;
   createdAt?: Date;
 }
 
@@ -46,46 +43,44 @@ export interface ExpenseItem {
   price: number;
 }
 
-export async function saveExpense(whatsappId: string, item: string, price: number, options: SaveExpenseOptions = {}): Promise<void> {
-  if (!whatsappId || !item || !price) return;
+export async function saveExpense(phoneNumber: string, item: string, price: number, options: SaveExpenseOptions = {}): Promise<void> {
+  if (!phoneNumber || !item || !price) return;
   if (!Number.isFinite(price) || price <= 0) throw new Error("Price must be a positive number");
 
   await createExpense({
-    whatsappId,
+    phoneNumber,
     description: item,
     amount: price,
     category: options.category,
-    phoneNumber: options.phoneNumber,
     createdAt: options.createdAt || new Date()
   });
 }
 
-export async function saveExpenses(whatsappId: string, items: ExpenseItem[], options: SaveExpenseOptions = {}): Promise<void> {
-  if (!whatsappId || items.length === 0) return;
+export async function saveExpenses(phoneNumber: string, items: ExpenseItem[], options: SaveExpenseOptions = {}): Promise<void> {
+  if (!phoneNumber || items.length === 0) return;
   if (items.some((item) => !item.name || !Number.isFinite(item.price) || item.price <= 0)) {
     throw new Error("Every expense item must have a name and a positive price");
   }
 
   await createExpenses(items.map((item) => ({
-    whatsappId,
+    phoneNumber,
     description: item.name,
     amount: item.price,
     category: options.category,
-    phoneNumber: options.phoneNumber,
     createdAt: options.createdAt || new Date()
   })));
 }
 
-export async function getExpensesThisMonth(whatsappId: string): Promise<ExpenseSummary[]> {
+export async function getExpensesThisMonth(phoneNumber: string): Promise<ExpenseSummary[]> {
   const now = new Date();
-  const rows = await getExpensesForMonth(whatsappId, now.getFullYear(), now.getMonth() + 1);
+  const rows = await getExpensesForMonth(phoneNumber, now.getFullYear(), now.getMonth() + 1);
   return rows.map(mapRowToExpense);
 }
 
-export async function getExpensesLastMonth(whatsappId: string): Promise<ExpenseSummary[]> {
+export async function getExpensesLastMonth(phoneNumber: string): Promise<ExpenseSummary[]> {
   const now = new Date();
   const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const rows = await getExpensesForMonth(whatsappId, lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1);
+  const rows = await getExpensesForMonth(phoneNumber, lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1);
   return rows.map(mapRowToExpense);
 }
 

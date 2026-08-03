@@ -26,11 +26,9 @@ model Expense {
   amount         Decimal   @db.Decimal(15, 2)
   category       String?   @db.VarChar(100)
   description    String?
-  whatsappId     String    @default("") @map("whatsapp_id") @db.VarChar(100)
   phoneNumber    String?   @map("phone_number") @db.VarChar(15)
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@index([whatsappId])
   @@index([phoneNumber])
   @@map("expenses")
 }
@@ -38,7 +36,6 @@ model Expense {
 model Todo {
   id             BigInt    @id @default(autoincrement())
   code           String    @unique @db.VarChar(10)
-  whatsappId     String    @default("") @map("whatsapp_id") @db.VarChar(100)
   userId         BigInt?   @map("user_id")
   phoneNumber    String?   @map("phone_number") @db.VarChar(15)
   text           String
