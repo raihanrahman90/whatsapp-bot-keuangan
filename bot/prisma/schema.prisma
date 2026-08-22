@@ -46,6 +46,16 @@ model Todo {
   @@map("todos")
 }
 
+model Note {
+  id        BigInt    @id @default(autoincrement())
+  name      String    @db.VarChar(255)
+  fact      String
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([name])
+  @@map("notes")
+}
+
 model OtpChallenge {
   id          BigInt   @id @default(autoincrement())
   phoneNumber String   @unique @map("phone_number") @db.VarChar(15)

@@ -3,6 +3,7 @@ import { buildExpenseMessage, getExpensesLastMonth, getExpensesThisMonth, saveEx
 import { deleteExpenseDraft, getExpenseDraft, reserveReceiptUploadForToday, saveExpenseDraft } from "./expenseDraftService";
 import { extractReceipt, type ReceiptExtractionInput, type ReceiptExtractionResult } from "./receiptExtractionService";
 import { getTodos, removeTodo, saveTodo } from "./todoServices";
+import { getNotes, saveNote } from "./noteServices";
 import { getPhoneNumberForUser, hasActiveSubscription, resolveUserId } from "../repositories/userRepository";
 
 export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Promise<void> {
@@ -23,6 +24,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
     if (command === "pengeluaran bulan ini") return showExpensesThisMonth(sock, sender, phoneNumber);
     if (command === "pengeluaran bulan lalu") return showExpensesLastMonth(sock, sender, phoneNumber);
     if (command === "todo") return showTodos(sock, sender, userId);
+    if (text.trim().toLowerCase().startsWith("note:")) return handleNoteInput(sock, sender, text);
     if (text.toLowerCase().startsWith("todo:")) return handleTodoInput(sock, sender, userId, text, phoneNumber);
     if (text.toLowerCase().startsWith("todo remove:")) return handleRemoveTodo(sock, sender, userId, text);
     return handleExpenseInput(sock, sender, text, phoneNumber);
@@ -165,6 +167,32 @@ async function handleTodoInput(sock: WASocket, sender: string, userId: bigint, t
   await sock.sendMessage(sender, { text: `📝 Todo berhasil ditambahkan\n\nKode : ${todo.code}\nTodo : ${todo.text}` });
 }
 
+async function handleNoteInput(sock: WASocket, sender: string, text: string): Promise<void> {
+  const match = text.trim().match(/^note:\s*([^\r\n]+)(?:\r?\n([\s\S]*))?$/i);
+  if (!match) {
+    await sock.sendMessage(sender, { text: "Format:\nNote: Nama\nFakta" });
+    return;
+  }
+
+  const name = match[1].trim();
+  const fact = match[2]?.trim();
+  if (!fact) return showNotes(sock, sender, name);
+
+  await saveNote(name, fact);
+  await sock.sendMessage(sender, { text: `Catatan tentang ${name} berhasil disimpan.` });
+}
+
+async function showNotes(sock: WASocket, sender: string, name: string): Promise<void> {
+  const notes = await getNotes(name);
+  if (notes.length === 0) {
+    await sock.sendMessage(sender, { text: `Belum ada fakta tentang ${name}.` });
+    return;
+  }
+
+  const message = `Fakta tentang ${name}:\n\n${notes.map((note, index) => `${index + 1}. ${note.fact}`).join("\n")}`;
+  await sock.sendMessage(sender, { text: message });
+}
+
 async function sendPhoneNumberRequired(sock: WASocket, sender: string): Promise<void> {
   await sock.sendMessage(sender, { text: "Nomor WhatsApp Anda belum dapat diidentifikasi. Silakan kirim pesan dari nomor utama Anda, lalu coba lagi." });
 }
@@ -218,6 +246,14 @@ async function showHelp(sock: WASocket, sender: string): Promise<void> {
     "",
     "Hapus Todo",
     "Remove Todo: A7KD",
+    "",
+    "Catatan tentang orang lain",
+    "Tambah catatan:",
+    "Note: Nama",
+    "Fakta",
+    "",
+    "Lihat semua fakta seseorang:",
+    "Note: Nama",
     "",
     "❓ Bantuan",
     "• help",
