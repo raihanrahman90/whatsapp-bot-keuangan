@@ -1,6 +1,6 @@
 services:
   whatsapp-bot:
-    build: ./bot
+    image: ${DOCKERHUB_USERNAME}/finance-whatsapp-bot:${IMAGE_TAG}
     container_name: finance-whatsapp-bot
     command: sh -c "npm run migrate && npm start"
     depends_on:
@@ -45,11 +45,7 @@ services:
     restart: unless-stopped
 
   web-ui:
-    build:
-      context: ./web
-      args:
-        BACKEND_URL: http://whatsapp-bot:3001
-        NEXT_PUBLIC_WHATSAPP_BOT_PHONE: ${NEXT_PUBLIC_WHATSAPP_BOT_PHONE}
+    image: ${DOCKERHUB_USERNAME}/finance-web:${IMAGE_TAG}
     container_name: finance-web
     depends_on:
       - whatsapp-bot
