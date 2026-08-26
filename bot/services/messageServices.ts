@@ -1,4 +1,5 @@
-import type { WAMessage, WASocket } from "@whiskeysockets/baileys" with { "resolution-mode": "import" };
+import type { WhatsAppClient, GowaMessage } from "./gowaService";
+type WASocket = WhatsAppClient;
 import { buildExpenseMessage, getExpensesLastMonth, getExpensesThisMonth, saveExpense, saveExpenses } from "./expenseServices";
 import { deleteExpenseDraft, getExpenseDraft, reserveReceiptUploadForToday, saveExpenseDraft } from "./expenseDraftService";
 import { extractReceipt, type ReceiptExtractionInput, type ReceiptExtractionResult } from "./receiptExtractionService";
@@ -6,14 +7,12 @@ import { getTodos, removeTodo, saveTodo } from "./todoServices";
 import { getNotes, saveNote } from "./noteServices";
 import { getPhoneNumberForUser, hasActiveSubscription, resolveUserId } from "../repositories/userRepository";
 
-export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Promise<void> {
+export async function handleIncomingMessage(sock: WhatsAppClient, msg: GowaMessage): Promise<void> {
   try {
     const sender = msg.key.remoteJid;
     if (!sender) return;
     const userId = await resolveUserId({ remoteJid: sender, remoteJidAlt: msg.key.remoteJidAlt });
     const phoneNumber = await getPhoneNumberForUser(userId);
-    if (msg.message?.imageMessage) return handleReceiptImage(sock, sender, userId, phoneNumber, msg);
-
     const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
     if (!text) return;
 
@@ -33,9 +32,9 @@ export async function handleIncomingMessage(sock: WASocket, msg: WAMessage): Pro
   }
 }
 
-async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint, phoneNumber: string | null, msg: WAMessage): Promise<void> {
+async function handleReceiptImage(sock: WhatsAppClient, sender: string, userId: bigint, phoneNumber: string | null, msg: GowaMessage): Promise<void> {
   if (!phoneNumber) return sendPhoneNumberRequired(sock, sender);
-  const mimeType = getReceiptMimeType(msg.message?.imageMessage?.mimetype);
+    const mimeType = "image/jpeg" as ReceiptExtractionInput["mimeType"];
   if (!mimeType) {
     await sock.sendMessage(sender, { text: "Maaf, kirim struk sebagai gambar JPG, PNG, atau WebP." });
     return;
@@ -61,12 +60,7 @@ async function handleReceiptImage(sock: WASocket, sender: string, userId: bigint
   }
 
   try {
-    const { downloadMediaMessage } = await import("@whiskeysockets/baileys");
-    const image = await downloadMediaMessage(msg, "buffer", {});
-    const result = await extractReceipt({ image, mimeType });
-    await saveExpenseDraft(phoneNumber, result);
-    console.log(`[user:${userId}] receipt extracted`, { itemCount: result.items.length, amount: result.amount, confidence: result.confidence });
-    await sock.sendMessage(sender, { text: buildReceiptPreview(result) });
+    throw new Error("Gowa media download is not configured");
   } catch (error) {
     console.error("Receipt extraction error:", error);
     await sock.sendMessage(sender, {

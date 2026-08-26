@@ -1,4 +1,4 @@
-import type { WASocket } from "@whiskeysockets/baileys" with { "resolution-mode": "import" };
+import type { WhatsAppClient } from "./gowaService";
 
 const OTP_PATTERN = /^\d{6}$/;
 
@@ -10,10 +10,10 @@ function normalizeWhatsAppNumber(phoneNumber: unknown): string {
   return normalized;
 }
 
-export async function sendOtp(sock: WASocket | null, phoneNumber: unknown, code: unknown, expiresInMinutes = 5): Promise<void> {
+export async function sendOtp(sock: WhatsAppClient | null, phoneNumber: unknown, code: unknown, expiresInMinutes = 5): Promise<void> {
   if (!sock) throw new Error("WhatsApp socket is not ready");
 
-  const recipient = `${normalizeWhatsAppNumber(phoneNumber)}@s.whatsapp.net`;
+  const recipient = normalizeWhatsAppNumber(phoneNumber);
   const otp = String(code || "");
   if (!OTP_PATTERN.test(otp)) throw new Error("code must be a 6-digit OTP");
 
