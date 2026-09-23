@@ -31,7 +31,7 @@ services:
       GOWA_DEVICE_ID: ${GOWA_DEVICE_ID}
       GOWA_WEBHOOK_SECRET: ${GOWA_WEBHOOK_SECRET}
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     networks:
       - finance-network
       - shared-backend
@@ -61,7 +61,7 @@ services:
       BACKEND_URL: http://whatsapp-bot:3001
       NEXT_PUBLIC_WHATSAPP_BOT_PHONE: ${NEXT_PUBLIC_WHATSAPP_BOT_PHONE}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     networks:
       - finance-network
     restart: unless-stopped
